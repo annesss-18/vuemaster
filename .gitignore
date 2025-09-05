@@ -39,7 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-firebase/client.d.ts
+firebase/client.ts
 
 # json
 vuemaster-556cc-firebase-adminsdk-fbsvc-894496430a.json
