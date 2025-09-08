@@ -41,9 +41,5 @@ yarn-error.log*
 next-env.d.ts
 package-lock.json
 
-
 # json
 vuemaster-556cc-firebase-adminsdk-fbsvc-894496430a.json
-
-# firebase
-firebase/client.ts
