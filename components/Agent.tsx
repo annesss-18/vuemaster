@@ -1,6 +1,12 @@
+'use client';
+
 import { cn } from '@/lib/utils';
 import Image from 'next/image'
-import { ca } from 'zod/v4/locales';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRef } from 'react';
+import { vapi } from '@/lib/vapi.sdk';
+
 
 enum CallStatus {
   ACTIVE = 'ACTIVE',
@@ -8,11 +14,147 @@ enum CallStatus {
   CONNECTING = 'CONNECTING',
   FINISHED = 'FINISHED'
 }
-const Agent = ({ userName }: AgentProps) => {
-  const callStatus = CallStatus.FINISHED; // Example state, replace with actual logic
-  const isSpeaking = true; // Example state, replace with actual logic
-  const messages = ['Whats your name?', 'My name is John Doe, nice to meet you!', 'How can I help you today?']; // Example state, replace with actual logic
-  const lastMessage = messages[messages.length - 1] || '';
+
+interface SavedMessage {
+  role: 'user' | 'system' | 'assistant',
+  content: string;
+}
+const Agent = ({ userName, userId, type }: AgentProps) => {
+  const router = useRouter();
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
+  const [messages, setMessages] = useState<SavedMessage[]>([]);
+  const triedFallbackRef = useRef(false);
+
+  if (!process.env.NEXT_PUBLIC_VAPI_API_TOKEN) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Configuration Error</strong>
+          <span className="block sm:inline"> The Vapi API token is missing. Please set the `NEXT_PUBLIC_VAPI_API_TOKEN` environment variable in a `.env.local` file and restart the server.</span>
+        </div>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+
+    const onCallStart = () => {
+      setCallStatus(CallStatus.ACTIVE);
+    }
+    const onCallEnd = () => {
+      setCallStatus(CallStatus.FINISHED);
+    }
+    const onMessage = (message: Message) => {
+      if (message.type === 'transcript' && message.transcriptType === 'final') {
+        const newMessage = {
+          role: message.role, content: message.transcript
+        }
+
+        setMessages((prev) => [...prev, newMessage]);
+      }
+    }
+    const onSpeechStart = () => {
+      setIsSpeaking(true);
+    }
+    const onSpeechEnd = () => {
+      setIsSpeaking(false);
+    }
+
+    const formatError = (err: any) => {
+      if (!err && err !== 0) return String(err);
+      if (typeof err === 'string') return err;
+      if (err instanceof Error) return err.stack || err.message;
+      try {
+        return JSON.stringify(err);
+      } catch (e) {
+        return String(err);
+      }
+    }
+
+    const onError = (error: any) => {
+      const message = formatError(error);
+      console.error(`Error in call: ${message}`);
+
+      // If the SDK reports a start-method-error complaining about workflow/workflow variables,
+      // it means the current assistant doesn't accept `workflowId`/`variableValues` payload.
+      // Try a one-time fallback: call `vapi.start()` with no args (assistant/default flow).
+      try {
+        const isStartMethodError = error?.type === 'start-method-error' || error?.type === 'start-method-error';
+        const messages = (error?.error?.error?.message) || (error?.error?.message) || '';
+        const indicatesWorkflow = typeof messages === 'string' && (messages.includes('workflowId') || messages.includes('variableValues'));
+
+        if (isStartMethodError && indicatesWorkflow && !triedFallbackRef.current) {
+          triedFallbackRef.current = true;
+          // Only attempt fallback if we're in the CONNECTING state
+          if (callStatus === CallStatus.CONNECTING) {
+            console.info('Vapi start failed for workflow payload — attempting fallback start() without payload');
+            // Fire-and-forget fallback start
+            vapi.start().catch((e: any) => console.error('Fallback start error:', formatError(e)));
+          }
+        }
+      } catch (e) {
+        // swallow defensive errors in the error handler
+      }
+    }
+
+    vapi.on('call-start', onCallStart);
+    vapi.on('call-end', onCallEnd);
+    vapi.on('message', onMessage);
+    vapi.on('speech-start', onSpeechStart);
+    vapi.on('speech-end', onSpeechEnd);
+    vapi.on('error', onError);
+
+    return () => {
+      vapi.off('call-start', onCallStart);
+      vapi.off('call-end', onCallEnd);
+      vapi.off('message', onMessage);
+      vapi.off('speech-start', onSpeechStart);
+      vapi.off('speech-end', onSpeechEnd);
+      vapi.off('error', onError);
+    }
+
+  }, []);
+
+  useEffect(() => {
+    if (callStatus === CallStatus.FINISHED) router.push('/');
+  }, [messages, callStatus, type, userId]);
+
+  const handleCall = async () => {
+    setCallStatus(CallStatus.CONNECTING);
+
+    if (type === "generate") {
+      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+        variableValues: {
+          username: userName,
+          userid: userId,
+        },
+      });
+    } else {
+      let formattedQuestions = "";
+      if (questions) {
+        formattedQuestions = questions
+          .map((question) => `- ${question}`)
+          .join("\n");
+      }
+
+      await vapi.start(interviewer, {
+        variableValues: {
+          questions: formattedQuestions,
+        },
+      });
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setCallStatus(CallStatus.FINISHED);
+
+    vapi.stop();
+  };
+
+  const LatestMessage = messages[messages.length - 1]?.content || '';
+
+  const isCallInactiveorFinished = callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
     <>
@@ -35,25 +177,23 @@ const Agent = ({ userName }: AgentProps) => {
       {
         messages.length > 0 && (
           <div className="transcript-border">
-            <div className="transcript">
-              <p key={lastMessage} className="{cn('transition-opacity' duration-500 opacity-0', animate-fade-in opacity-100')}">
-                {lastMessage}
-              </p>
-            </div>
+            <p key={LatestMessage} className={cn('transition-opacity duration-500 opacity-0', 'animate-fade-in opacity-100')}>
+              {LatestMessage}
+            </p>
           </div>
         )
       }
       <div className="w-full flex justify-center">
         {
           callStatus !== 'ACTIVE' ? (
-            <button className="relative btn-call">
-              <span className={cn("absolute rounded-full opacity-75 animate-ping", callStatus !== 'CONNECTING' & 'hidden')} />
+            <button className="relative btn-call" onClick = {handleCall}>
+              <span className={cn("absolute rounded-full opacity-75 animate-ping", callStatus !== 'CONNECTING' && 'hidden')} />
               <span>
-                {callStatus === 'INACTIVE' || callStatus === 'FINISHED' ? 'Start Call' : '...'}
+                {isCallInactiveorFinished ? 'Start Call' : '...'}
               </span>
             </button>
           ) : (
-            <button className="btn-disconnet">
+            <button className="btn-disconnet" onClick={handleDisconnect}>
               End
             </button>
           )
