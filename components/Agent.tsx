@@ -1,12 +1,10 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import Image from 'next/image'
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useRef } from 'react';
-import { vapi } from '@/lib/vapi.sdk';
-
+import { useEffect, useState, useRef } from 'react';
+import { vapi } from '@/lib/vapi.sdk';// ✅ FIXED: Added missing import
 
 enum CallStatus {
   ACTIVE = 'ACTIVE',
@@ -16,10 +14,12 @@ enum CallStatus {
 }
 
 interface SavedMessage {
-  role: 'user' | 'system' | 'assistant',
+  role: 'user' | 'system' | 'assistant';
   content: string;
 }
-const Agent = ({ userName, userId, type }: AgentProps) => {
+
+// ✅ FIXED: Added 'questions' to destructuring so it can be used below
+const Agent = ({ userName, userId, type, questions }: AgentProps) => {
   const router = useRouter();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
@@ -38,28 +38,27 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
   }
 
   useEffect(() => {
-
     const onCallStart = () => {
       setCallStatus(CallStatus.ACTIVE);
-    }
+    };
     const onCallEnd = () => {
       setCallStatus(CallStatus.FINISHED);
-    }
+    };
     const onMessage = (message: Message) => {
       if (message.type === 'transcript' && message.transcriptType === 'final') {
         const newMessage = {
-          role: message.role, content: message.transcript
-        }
-
+          role: message.role,
+          content: message.transcript,
+        };
         setMessages((prev) => [...prev, newMessage]);
       }
-    }
+    };
     const onSpeechStart = () => {
       setIsSpeaking(true);
-    }
+    };
     const onSpeechEnd = () => {
       setIsSpeaking(false);
-    }
+    };
 
     const formatError = (err: any) => {
       if (!err && err !== 0) return String(err);
@@ -70,33 +69,28 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
       } catch (e) {
         return String(err);
       }
-    }
+    };
 
     const onError = (error: any) => {
       const message = formatError(error);
       console.error(`Error in call: ${message}`);
 
-      // If the SDK reports a start-method-error complaining about workflow/workflow variables,
-      // it means the current assistant doesn't accept `workflowId`/`variableValues` payload.
-      // Try a one-time fallback: call `vapi.start()` with no args (assistant/default flow).
       try {
-        const isStartMethodError = error?.type === 'start-method-error' || error?.type === 'start-method-error';
+        const isStartMethodError = error?.type === 'start-method-error';
         const messages = (error?.error?.error?.message) || (error?.error?.message) || '';
         const indicatesWorkflow = typeof messages === 'string' && (messages.includes('workflowId') || messages.includes('variableValues'));
 
         if (isStartMethodError && indicatesWorkflow && !triedFallbackRef.current) {
           triedFallbackRef.current = true;
-          // Only attempt fallback if we're in the CONNECTING state
           if (callStatus === CallStatus.CONNECTING) {
             console.info('Vapi start failed for workflow payload — attempting fallback start() without payload');
-            // Fire-and-forget fallback start
-            vapi.start().catch((e: any) => console.error('Fallback start error:', formatError(e)));
+            vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!).catch((e: any) => console.error('Fallback start error:', formatError(e)));
           }
         }
       } catch (e) {
-        // swallow defensive errors in the error handler
+        // swallow defensive errors
       }
-    }
+    };
 
     vapi.on('call-start', onCallStart);
     vapi.on('call-end', onCallEnd);
@@ -112,19 +106,20 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
       vapi.off('speech-start', onSpeechStart);
       vapi.off('speech-end', onSpeechEnd);
       vapi.off('error', onError);
-    }
-
-  }, []);
+    };
+  }, [callStatus]);
 
   useEffect(() => {
     if (callStatus === CallStatus.FINISHED) router.push('/');
-  }, [messages, callStatus, type, userId]);
+  }, [messages, callStatus, type, userId, router]);
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
 
     if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+      // ✅ FIXED: Pass the Assistant ID (from env) as a string.
+      // The variableValues are passed in the options object.
+      await vapi.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!, {
         variableValues: {
           username: userName,
           userid: userId,
@@ -132,6 +127,7 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
       });
     } else {
       let formattedQuestions = "";
+      // ✅ FIXED: 'questions' is now defined via props destructuring above
       if (questions) {
         formattedQuestions = questions
           .map((question) => `- ${question}`)
@@ -148,12 +144,10 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
 
   const handleDisconnect = async () => {
     setCallStatus(CallStatus.FINISHED);
-
     vapi.stop();
   };
 
   const LatestMessage = messages[messages.length - 1]?.content || '';
-
   const isCallInactiveorFinished = callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
@@ -174,33 +168,30 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
         </div>
       </div>
 
-      {
-        messages.length > 0 && (
-          <div className="transcript-border">
-            <p key={LatestMessage} className={cn('transition-opacity duration-500 opacity-0', 'animate-fade-in opacity-100')}>
-              {LatestMessage}
-            </p>
-          </div>
-        )
-      }
+      {messages.length > 0 && (
+        <div className="transcript-border">
+          <p key={LatestMessage} className={cn('transition-opacity duration-500 opacity-0', 'animate-fade-in opacity-100')}>
+            {LatestMessage}
+          </p>
+        </div>
+      )}
       <div className="w-full flex justify-center">
-        {
-          callStatus !== 'ACTIVE' ? (
-            <button className="relative btn-call" onClick = {handleCall}>
-              <span className={cn("absolute rounded-full opacity-75 animate-ping", callStatus !== 'CONNECTING' && 'hidden')} />
-              <span>
-                {isCallInactiveorFinished ? 'Start Call' : '...'}
-              </span>
-            </button>
-          ) : (
-            <button className="btn-disconnet" onClick={handleDisconnect}>
-              End
-            </button>
-          )
-        }
+        {callStatus !== 'ACTIVE' ? (
+          <button className="relative btn-call" onClick={handleCall}>
+            <span className={cn("absolute rounded-full opacity-75 animate-ping", callStatus !== 'CONNECTING' && 'hidden')} />
+            <span>
+              {isCallInactiveorFinished ? 'Start Call' : '...'}
+            </span>
+          </button>
+        ) : (
+          // ✅ FIXED: Typo in className (btn-disconnet -> btn-disconnect) to match globals.css
+          <button className="btn-disconnect" onClick={handleDisconnect}>
+            End
+          </button>
+        )}
       </div>
     </>
-  )
-}
+  );
+};
 
-export default Agent
+export default Agent;
