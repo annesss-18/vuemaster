@@ -1,6 +1,7 @@
 'use server';
 
 import { db, auth } from "@/firebase/admin";
+import { doc, where } from "firebase/firestore";
 import { cookies } from "next/headers";
 import { email, success } from "zod";
 import { ca } from "zod/v4/locales";
@@ -13,8 +14,10 @@ export async function signUp(params: SignUpParams) {
     try {
         const userRecord = await db.collection('users').doc(uid).get();
         if (userRecord.exists) {
-            success: false
-            message: 'User already exists. Please sign in instead.'
+            return {
+                success: false,
+                message: 'User already exists. Please sign in instead.'
+            };
         }
         await db.collection('users').doc(uid).set({
             name, email
@@ -98,7 +101,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
         return {
             ...userData,
-            id: decodedClaims.id
+            id: decodedClaims.uid
         } as User;
     }
 
@@ -112,3 +115,4 @@ export async function isAuthenticated() {
     const user = await getCurrentUser();
     return !!user;
 }
+

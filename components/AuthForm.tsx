@@ -79,7 +79,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
     catch (error) {
       console.log(error);
-      toast.error('There was an error: ${(error as Error).message}');
+      toast.error(`There was an error: ${(error as Error).message}`);
     }
   }
 
@@ -113,7 +113,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
             <FormField
               control={form.control}
               name="password"
-              label="Passowrd"
+              label="Password"
               placeholder="Your password"
               type="password"
             />

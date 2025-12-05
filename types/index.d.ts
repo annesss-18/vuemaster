@@ -2,7 +2,20 @@ interface Feedback {
   id: string;
   interviewId: string;
   totalScore: number;
-  categoryScores: Array<{
+  // Stored as an object with named categories (easy lookup) when created,
+  // e.g. { communicationSkills: { score, comment }, technicalKnowledge: { ... } }
+  categoryScores: {
+    [key: string]: {
+      score: number;
+      comment: string;
+    };
+  } | Array<{
+    name: string;
+    score: number;
+    comment: string;
+  }>;
+  // Also persisted as an ordered array for UI display
+  categoryScoresArray?: Array<{
     name: string;
     score: number;
     comment: string;
@@ -39,7 +52,7 @@ interface User {
 }
 
 interface InterviewCardProps {
-  interviewId?: string;
+  id?: string;
   userId?: string;
   role: string;
   type: string;

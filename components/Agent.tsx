@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { vapi } from '@/lib/vapi.sdk';// ✅ FIXED: Added missing import
+import { interviewer } from '@/constants';
+import { createFeedback } from '@/lib/actions/general.action';
 
 enum CallStatus {
   ACTIVE = 'ACTIVE',
@@ -19,23 +21,12 @@ interface SavedMessage {
 }
 
 // ✅ FIXED: Added 'questions' to destructuring so it can be used below
-const Agent = ({ userName, userId, type, questions }: AgentProps) => {
+const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) => {
   const router = useRouter();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
   const triedFallbackRef = useRef(false);
-
-  if (!process.env.NEXT_PUBLIC_VAPI_API_TOKEN) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Configuration Error</strong>
-          <span className="block sm:inline"> The Vapi API token is missing. Please set the `NEXT_PUBLIC_VAPI_API_TOKEN` environment variable in a `.env.local` file and restart the server.</span>
-        </div>
-      </div>
-    );
-  }
 
   useEffect(() => {
     const onCallStart = () => {
@@ -109,39 +100,63 @@ const Agent = ({ userName, userId, type, questions }: AgentProps) => {
     };
   }, [callStatus]);
 
+  const handleGenerateFeedback = async (messages: SavedMessage[]) => {
+    console.log('Generate feedback here.');
+
+    const { success, feedbackId: id } = await createFeedback({
+      interviewId: interviewId!,
+      userId: userId!,
+      transcript: messages,
+    });
+
+    if (success && id) {
+      router.push(`/interview/${interviewId}/feedback`);
+    }
+    else {
+      console.error('Failed to generate feedback.');
+    }
+  }
   useEffect(() => {
-    if (callStatus === CallStatus.FINISHED) router.push('/');
+    if (callStatus === CallStatus.FINISHED) {
+      if (type === "generate") {
+        router.push(`/`);
+      }
+      else {
+        handleGenerateFeedback(messages);
+      }
+    }
   }, [messages, callStatus, type, userId, router]);
 
   const handleCall = async () => {
-    setCallStatus(CallStatus.CONNECTING);
+    try {
+      setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      // ✅ FIXED: Pass the Assistant ID (from env) as a string.
-      // The variableValues are passed in the options object.
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-    } else {
-      let formattedQuestions = "";
-      // ✅ FIXED: 'questions' is now defined via props destructuring above
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
+      if (type === "generate") {
+        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+          variableValues: {
+            username: userName,
+            userid: userId,
+          },
+        });
+      } else {
+        let formattedQuestions = "";
+        if (questions) {
+          formattedQuestions = questions
+            .map((question) => `- ${question}`)
+            .join("\n");
+        }
+
+        await vapi.start(interviewer, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
       }
-
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+    } catch (error) {
+      console.error('Failed to start call:', error);
+      setCallStatus(CallStatus.INACTIVE);
     }
   };
-
   const handleDisconnect = async () => {
     setCallStatus(CallStatus.FINISHED);
     vapi.stop();
@@ -184,7 +199,6 @@ const Agent = ({ userName, userId, type, questions }: AgentProps) => {
             </span>
           </button>
         ) : (
-          // ✅ FIXED: Typo in className (btn-disconnet -> btn-disconnect) to match globals.css
           <button className="btn-disconnect" onClick={handleDisconnect}>
             End
           </button>
