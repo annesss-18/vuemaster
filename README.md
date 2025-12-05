@@ -1,6 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VueMaster - AI-Powered Mock Interviews
+
+VueMaster is a Next.js web application that allows users to practice job interviews with an AI-powered interviewer. Users can create an account, generate mock interviews for specific job roles and technologies, and receive detailed feedback on their performance.
+
+## Technologies Used
+
+- **Frontend:** [Next.js](https://nextjs.org/) with [React](https://react.dev/) and [TypeScript](https://www.typescriptlang.org/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [ShadCN UI](https://ui.shadcn.com/)
+- **Backend:** Next.js API Routes and Server-Side Actions
+- **Database:** [Firebase Firestore](https://firebase.google.com/docs/firestore)
+- **Authentication:** [Firebase Authentication](https://firebase.google.com/docs/auth)
+- **AI:**
+  - **Interview Questions Generation:** [Google AI SDK](https://ai.google.dev/sdks) with the `gemini-2.5-pro` model.
+  - **Voice Conversation:** [Vapi AI SDK](https://vapi.ai/)
+  - **Feedback Generation:** [Google AI SDK](https://ai.google.dev/sdks) with the `gemini-2.0-flash-001` model.
 
 ## Getting Started
+
+### Prerequisites
+
+- [Node.js](https.org/en/) (version 20 or higher)
+- [Yarn](https://yarnpkg.com/) (optional)
+
+### Environment Variables
+
+Create a `.env.local` file in the root of the project and add the following environment variables:
+
+```
+# Firebase Client Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+
+# Firebase Admin Configuration
+FIREBASE_PROJECT_ID=
+FIREBASE_PRIVATE_KEY=
+FIREBASE_CLIENT_EMAIL=
+
+# Vapi AI
+NEXT_PUBLIC_VAPI_API_TOKEN=
+NEXT_PUBLIC_VAPI_WORKFLOW_ID=
+
+# Google AI
+GOOGLE_API_KEY=
+```
+
+**Note:** You can get the Firebase configuration from your Firebase project console. The `FIREBASE_PRIVATE_KEY` should be the private key from your service account JSON file. The `NEXT_PUBLIC_VAPI_API_TOKEN` and `NEXT_PUBLIC_VAPI_WORKFLOW_ID` can be obtained from the Vapi dashboard. The `GOOGLE_API_KEY` can be obtained from the Google AI Studio.
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/vuemaster.git
+   ```
+2. Install the dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+### Running the Development Server
 
 First, run the development server:
 
@@ -8,26 +71,18 @@ First, run the development server:
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+To learn more about the technologies used in this project, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [Firebase Documentation](https://firebase.google.com/docs) - learn about Firebase products and features.
+- [Vapi AI Documentation](https://vapi.ai/docs) - learn about the Vapi AI SDK.
+- [Google AI Documentation](https://ai.google.dev/docs) - learn about the Google AI SDK.
 
 ## Deploy on Vercel
 
