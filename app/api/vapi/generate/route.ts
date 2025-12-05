@@ -8,11 +8,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-    const { type, role, level, techstack, amount, userid } = await request.json();
+    const { type, role, level, techstack = '', amount, userid } = await request.json();
 
     try {
+        console.log('GOOGLE_GENERATIVE_AI_API_KEY:', process.env.GOOGLE_GENERATIVE_AI_API_KEY ? 'SET' : 'NOT SET');
+        
+        if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+            throw new Error('GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set');
+        }
+        
         const { text: questions } = await generateText({
-            model: google('gemini-2.5-pro'),
+            model: google('gemini-2.0-flash'),
             prompt: `Prepare questions for a job interview.
                     The job role is ${role}.
                     The job experience level is ${level}.
@@ -25,13 +31,14 @@ export async function POST(request: Request) {
                     ["Question 1", "Question 2", "Question 3"]
                     Thank you! <3`,
         })
-        const interview = { role, level, techstack: techstack.split(','), type, questions: JSON.parse(questions), userId: userid, finalized: true, coverImage: getRandomInterviewCover(), createdAt: new Date().toISOString() };
+        const interview = { role, level, techstack: techstack ? techstack.split(',') : [], type, questions: JSON.parse(questions), userId: userid, finalized: true, coverImage: getRandomInterviewCover(), createdAt: new Date().toISOString() };
 
         await db.collection("interviews").add(interview);
 
         return Response.json({ success: true }, { status: 200 });
     }
     catch (error) {
-        return Response.json({ success: false, error }, { status: 500 });
+        console.error('Error in POST /api/vapi/generate:', error);
+        return Response.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
