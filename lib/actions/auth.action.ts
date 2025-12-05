@@ -1,10 +1,12 @@
 'use server';
 
 import { db, auth } from "@/firebase/admin";
+import { log } from "console";
 import { doc, where } from "firebase/firestore";
 import { cookies } from "next/headers";
 import { email, success } from "zod";
 import { ca } from "zod/v4/locales";
+import { logger } from "../logger";
 
 const ONE_WEEK = 60 * 60 * 24 * 7;
 
@@ -30,7 +32,7 @@ export async function signUp(params: SignUpParams) {
 
     }
     catch (e: any) {
-        console.error('Error signing up user:', e);
+        logger.error('Error signing up user:', e);
         if (e.code === 'auth/email-already-exists') {
             return {
                 success: false,
@@ -56,10 +58,14 @@ export async function signIn(params: SignInParams) {
             };
         }
         await setSessionCookie(idToken);
-    }
 
+        return {
+            success: true,
+            message: 'Signed in successfully'
+        };
+    }
     catch (e: any) {
-        console.error('Error signing in user:', e);
+        logger.error('Error signing in user:', e);
         return {
             success: false,
             message: 'Failed to sign in'
@@ -69,13 +75,14 @@ export async function signIn(params: SignInParams) {
 
 export async function setSessionCookie(idToken: string) {
     const cookieStore = await cookies();
-
+    const isProduction = process.env.NODE_ENV === 'production' ||
+        process.env.VERCEL_ENV === 'production';
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn: ONE_WEEK * 1000 })
 
     cookieStore.set('session', sessionCookie, {
         maxAge: ONE_WEEK,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         path: '/',
         sameSite: 'lax'
     })
@@ -106,7 +113,7 @@ export async function getCurrentUser(): Promise<User | null> {
     }
 
     catch (e) {
-        console.log(e);
+        logger.log(e);
         return null;
     }
 }

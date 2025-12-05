@@ -1,5 +1,7 @@
 import { getCurrentUser } from '@/lib/actions/auth.action';
 import { getFeedbackByInterviewId, getInterviewsById } from '@/lib/actions/general.action';
+import { logger } from '@/lib/logger';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import React from 'react'
 
@@ -7,31 +9,42 @@ const page = async ({ params }: RouteParams) => {
 
     const { id } = await params;
     const user = await getCurrentUser();
-    const interview = await getInterviewsById(id);
+    const interview = await getInterviewsById(id, user?.id);
     if (!interview) redirect('/');
     const feedback = await getFeedbackByInterviewId({
         interviewId: id,
         userId: user?.id!
     });
 
-    console.log('FEEDBACK:', feedback);
+
+    logger.info('FEEDBACK:', feedback);
 
     if (!feedback) {
         return (
             <div className="max-w-4xl mx-auto p-6">
                 <h2 className="text-2xl font-semibold">Feedback</h2>
                 <p className="mt-4 text-muted-foreground">No feedback available for this interview yet.</p>
+                <Link href={`/interview/${id}`} className="btn-primary mt-4 inline-block">
+                    Take Interview
+                </Link>
             </div>
         );
     }
 
+    // Safely access arrays with default empty array
+    const categories = feedback.categoryScoresArray || [];
+    const strengths = feedback.strengths || [];
+    const improvements = feedback.areasForImprovement || [];
+
     const formatDate = (iso?: string) => {
-        if (!iso) return '';
-        try {
-            return new Date(iso).toLocaleString();
-        } catch (e) {
-            return iso;
+        if (!iso) return 'N/A';
+
+        const date = new Date(iso);
+        if (isNaN(date.getTime())) {
+            return 'Invalid date';
         }
+
+        return date.toLocaleString();
     }
 
     return (

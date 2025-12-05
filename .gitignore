@@ -45,4 +45,5 @@ yarn-error.log*
 next-env.d.ts
 
 # JSON
-vuemaster-556cc-firebase-adminsdk-fbsvc-894496430a.json
+*-firebase-adminsdk-*.json
+firebase-service-account*.json

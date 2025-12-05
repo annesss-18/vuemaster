@@ -2,6 +2,7 @@ import { generateText } from 'ai';
 import { google } from '@ai-sdk/google';
 import { getRandomInterviewCover } from '@/lib/utils';
 import { db } from '@/firebase/admin';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
     return Response.json({ success: true, data: 'Thank You!' }, { status: 200 });
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     const { type, role, level, techstack = '', amount, userid } = await request.json();
 
     try {
-        console.log('GOOGLE_GENERATIVE_AI_API_KEY:', process.env.GOOGLE_GENERATIVE_AI_API_KEY ? 'SET' : 'NOT SET');
+        logger.info('GOOGLE_GENERATIVE_AI_API_KEY:', process.env.GOOGLE_GENERATIVE_AI_API_KEY ? 'SET' : 'NOT SET');
         
         if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
             throw new Error('GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set');
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
         return Response.json({ success: true }, { status: 200 });
     }
     catch (error) {
-        console.error('Error in POST /api/vapi/generate:', error);
+        logger.error('Error in POST /api/vapi/generate:', error);
         return Response.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

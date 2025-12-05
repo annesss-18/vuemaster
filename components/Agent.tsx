@@ -7,6 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import { vapi } from '@/lib/vapi.sdk';// ✅ FIXED: Added missing import
 import { interviewer } from '@/constants';
 import { createFeedback } from '@/lib/actions/general.action';
+import { logger } from '@/lib/logger';
 
 enum CallStatus {
   ACTIVE = 'ACTIVE',
@@ -28,13 +29,20 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
   const [messages, setMessages] = useState<SavedMessage[]>([]);
   const triedFallbackRef = useRef(false);
 
+  // NEW: State for feedback generation
+  const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const hasProcessedCallEnd = useRef(false); // Prevent double execution
+
   useEffect(() => {
     const onCallStart = () => {
       setCallStatus(CallStatus.ACTIVE);
     };
+
     const onCallEnd = () => {
       setCallStatus(CallStatus.FINISHED);
     };
+
     const onMessage = (message: Message) => {
       if (message.type === 'transcript' && message.transcriptType === 'final') {
         const newMessage = {
@@ -44,9 +52,11 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
         setMessages((prev) => [...prev, newMessage]);
       }
     };
+
     const onSpeechStart = () => {
       setIsSpeaking(true);
     };
+
     const onSpeechEnd = () => {
       setIsSpeaking(false);
     };
@@ -64,22 +74,24 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
 
     const onError = (error: any) => {
       const message = formatError(error);
-      console.error(`Error in call: ${message}`);
+      logger.error(`Error in call: ${message}`);
 
       try {
         const isStartMethodError = error?.type === 'start-method-error';
         const messages = (error?.error?.error?.message) || (error?.error?.message) || '';
-        const indicatesWorkflow = typeof messages === 'string' && (messages.includes('workflowId') || messages.includes('variableValues'));
+        const indicatesWorkflow = typeof messages === 'string' &&
+          (messages.includes('workflowId') || messages.includes('variableValues'));
 
         if (isStartMethodError && indicatesWorkflow && !triedFallbackRef.current) {
           triedFallbackRef.current = true;
           if (callStatus === CallStatus.CONNECTING) {
-            console.info('Vapi start failed for workflow payload — attempting fallback start() without payload');
-            vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!).catch((e: any) => console.error('Fallback start error:', formatError(e)));
+            logger.info('Vapi start failed for workflow payload — attempting fallback');
+            vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!)
+              .catch((e: any) => logger.error('Fallback start error:', formatError(e)));
           }
         }
       } catch (e) {
-        // swallow defensive errors
+        // Defensive error handling
       }
     };
 
@@ -98,66 +110,97 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
       vapi.off('speech-end', onSpeechEnd);
       vapi.off('error', onError);
     };
-  }, [callStatus]);
+  }, []); // Empty dependency array - only run once
 
-  const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-    console.log('Generate feedback here.');
-
-    const { success, feedbackId: id } = await createFeedback({
-      interviewId: interviewId!,
-      userId: userId!,
-      transcript: messages,
-    });
-
-    if (success && id) {
-      router.push(`/interview/${interviewId}/feedback`);
+  const handleGenerateFeedback = async (transcript: SavedMessage[]) => {
+    // Validation
+    if (!interviewId || !userId) {
+      setFeedbackError('Missing interview or user information. Please try again.');
+      return;
     }
-    else {
-      console.error('Failed to generate feedback.');
+
+    if (transcript.length === 0) {
+      setFeedbackError('No conversation recorded. Please try the interview again.');
+      return;
     }
-  }
-  useEffect(() => {
-    if (callStatus === CallStatus.FINISHED) {
-      if (type === "generate") {
-        router.push(`/`);
+
+    setIsGeneratingFeedback(true);
+    setFeedbackError(null);
+
+    try {
+      const { success, feedbackId } = await createFeedback({
+        interviewId,
+        userId,
+        transcript,
+      });
+
+      if (success && feedbackId) {
+        // Navigate to feedback page
+        router.push(`/interview/${interviewId}/feedback`);
+      } else {
+        setFeedbackError('Failed to generate feedback. Please try again.');
+        setIsGeneratingFeedback(false);
       }
-      else {
+    } catch (error) {
+      console.error('Feedback generation error:', error);
+      setFeedbackError('An unexpected error occurred. Please try again.');
+      setIsGeneratingFeedback(false);
+    }
+  };
+
+  // FIXED: Prevent race condition and handle both paths properly
+  useEffect(() => {
+    // Only process once when call finishes
+    if (callStatus === CallStatus.FINISHED && !hasProcessedCallEnd.current) {
+      hasProcessedCallEnd.current = true;
+
+      if (type === "generate") {
+        // Generation complete, go home
+        router.push('/');
+      } else if (type === "interview") {
+        // Interview complete, generate feedback
         handleGenerateFeedback(messages);
       }
     }
-  }, [messages, callStatus, type, userId, router]);
+  }, [callStatus]); // ONLY depend on callStatus, not messages
 
-  const handleCall = async () => {
-    try {
-      setCallStatus(CallStatus.CONNECTING);
+  const handleCall = () => {
+    setCallStatus(CallStatus.CONNECTING);
+    setFeedbackError(null); // Clear any previous errors
+    hasProcessedCallEnd.current = false; // Reset for new call
 
-      if (type === "generate") {
-        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-          variableValues: {
-            username: userName,
-            userid: userId,
-          },
-        });
-      } else {
-        let formattedQuestions = "";
-        if (questions) {
-          formattedQuestions = questions
-            .map((question) => `- ${question}`)
-            .join("\n");
+    (async () => {
+      try {
+        if (type === "generate") {
+          await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+            variableValues: {
+              username: userName,
+              userid: userId,
+            },
+          });
+        } else {
+          let formattedQuestions = "";
+          if (questions && questions.length > 0) {
+            formattedQuestions = questions
+              .map((question) => `- ${question}`)
+              .join("\n");
+          }
+
+          await vapi.start(interviewer, {
+            variableValues: {
+              questions: formattedQuestions,
+            },
+          });
         }
-
-        await vapi.start(interviewer, {
-          variableValues: {
-            questions: formattedQuestions,
-          },
-        });
+      } catch (error) {
+        console.error('Failed to start call:', error);
+        setCallStatus(CallStatus.INACTIVE);
+        setFeedbackError('Failed to start call. Please check your connection and try again.');
       }
-    } catch (error) {
-      console.error('Failed to start call:', error);
-      setCallStatus(CallStatus.INACTIVE);
-    }
+    })();
   };
-  const handleDisconnect = async () => {
+
+  const handleDisconnect = () => {
     setCallStatus(CallStatus.FINISHED);
     vapi.stop();
   };
@@ -170,14 +213,14 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
       <div className="call-view">
         <div className="card-interviewer">
           <div className="avatar">
-            <Image src="/ai-avatar.png" alt="vapi" width={65} height={65} className="object-cover" />
+            <Image src="/ai-avatar.png" alt="AI Interviewer Avatar" width={65} height={65} className="object-cover" />
             {isSpeaking && <span className="animate-speak"></span>}
           </div>
           <h3>AI Interviewer</h3>
         </div>
         <div className="card-border">
           <div className="card-content">
-            <Image src="/user-avatar.png" alt="user" width={540} height={540} className="rounded-full object-cover size-[120px]" />
+            <Image src="/user-avatar.png" alt={`${userName}'s Avatar`} width={540} height={540} className="rounded-full object-cover size-[120px]" />
             <h3>{userName}</h3>
           </div>
         </div>
@@ -185,24 +228,63 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
 
       {messages.length > 0 && (
         <div className="transcript-border">
-          <p key={LatestMessage} className={cn('transition-opacity duration-500 opacity-0', 'animate-fade-in opacity-100')}>
-            {LatestMessage}
+          <div className="transcript">
+            <p
+              key={messages.length} // Use message count as key to trigger re-animation
+              className="animate-fadeIn" // Use the keyframe animation from globals.css
+            >
+              {LatestMessage}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Loading state for feedback generation */}
+      {isGeneratingFeedback && (
+        <div className="text-center mt-6 p-6 bg-dark-200 rounded-lg">
+          <div className="animate-spin text-4xl mb-4">⟳</div>
+          <p className="text-primary-100 text-lg font-semibold">
+            Analyzing your interview performance...
+          </p>
+          <p className="text-light-100 mt-2">
+            This may take a few moments
           </p>
         </div>
       )}
+
+      {/* NEW: Error handling with retry */}
+      {feedbackError && (
+        <div className="text-center mt-6 p-6 bg-destructive-100/10 border border-destructive-100 rounded-lg">
+          <p className="text-destructive-100 font-semibold mb-4">
+            {feedbackError}
+          </p>
+          {callStatus === CallStatus.FINISHED && messages.length > 0 && (
+            <button
+              onClick={() => handleGenerateFeedback(messages)}
+              className="btn-primary"
+            >
+              Retry Feedback Generation
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="w-full flex justify-center">
-        {callStatus !== 'ACTIVE' ? (
-          <button className="relative btn-call" onClick={handleCall}>
-            <span className={cn("absolute rounded-full opacity-75 animate-ping", callStatus !== 'CONNECTING' && 'hidden')} />
+        {callStatus !== CallStatus.ACTIVE && !isGeneratingFeedback ? (
+          <button className="relative btn-call" onClick={handleCall} disabled={isGeneratingFeedback}>
+            <span className={cn(
+              "absolute rounded-full opacity-75 animate-ping",
+              callStatus !== CallStatus.CONNECTING && 'hidden'
+            )} />
             <span>
-              {isCallInactiveorFinished ? 'Start Call' : '...'}
+              {isCallInactiveorFinished ? 'Start Call' : 'Connecting...'}
             </span>
           </button>
-        ) : (
+        ) : callStatus === CallStatus.ACTIVE ? (
           <button className="btn-disconnect" onClick={handleDisconnect}>
-            End
+            End Interview
           </button>
-        )}
+        ) : null}
       </div>
     </>
   );

@@ -3,7 +3,7 @@ import { feedbackSchema } from "@/constants";
 import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { generateObject } from "ai";
-import { int, success } from "zod";
+import { logger } from "../logger";
 
 
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
@@ -36,13 +36,35 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
     })) as Interview[]
 }
 
-export async function getInterviewsById(id: string): Promise<Interview | null> {
-    const interview = await db
+export async function getInterviewsById(
+    id: string,
+    userId?: string
+): Promise<Interview | null> {
+    const interviewDoc = await db
         .collection('interviews')
         .doc(id)
         .get();
 
-    return interview.data() as Interview || null;
+    // Check if document exists
+    if (!interviewDoc.exists) {
+        return null;
+    }
+
+    const interviewData = interviewDoc.data();
+    if (!interviewData) {
+        return null;
+    }
+
+    // Authorization: User can access if they own it OR if it's finalized (public)
+    if (userId && interviewData.userId !== userId && !interviewData.finalized) {
+        return null; // Unauthorized access attempt
+    }
+
+    // Return complete interview object with ID
+    return {
+        ...interviewData,
+        id: interviewDoc.id
+    } as Interview;
 }
 
 export async function createFeedback(params: CreateFeedbackParams) {
@@ -121,7 +143,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
         }
     }
     catch (error) {
-        console.error("Error creating feedback:", error);
+        logger.error("Error creating feedback:", error);
         return {
             success: false
         }
@@ -137,12 +159,12 @@ export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdP
         .limit(1)
         .get();
 
-        if (feedback.empty) { return null; }
+    if (feedback.empty) { return null; }
 
-        const feedbackDoc = feedback.docs[0];
-        return {
-            ...feedbackDoc.data(),
-            id: feedbackDoc.id
-        } as Feedback;
+    const feedbackDoc = feedback.docs[0]!;
+    return {
+        ...feedbackDoc.data(),
+        id: feedbackDoc.id
+    } as Feedback;
 
 }       

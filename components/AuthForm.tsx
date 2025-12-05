@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation"
 import { auth } from "@/firebase/client"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import { signIn, signUp } from "@/lib/actions/auth.action"
+import { logger } from "@/lib/logger"
 
 const formSchema = z.object({
   username: z.string().min(2).max(50),
@@ -60,7 +61,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
         }
         toast.success("Account created successfully!");
         router.push('/sign-in');
-        console.log("SIGN UP", values)
+        logger.info("SIGN UP", values);
 
       } else {
         const { email, password } = values;
@@ -74,12 +75,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
         await signIn({ email, idToken });
         toast.success("Signed in successfully!");
         router.push('/');
-        console.log("SIGN IN", values);
+        logger.info("SIGN IN", values);
       }
     }
     catch (error) {
-      console.log(error);
-      toast.error(`There was an error: ${(error as Error).message}`);
+      logger.error('Authentication error:', error);
+      let errorMessage = 'An unexpected error occurred';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast.error(`There was an error: ${errorMessage}`);
     }
   }
 
