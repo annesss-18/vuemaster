@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
-import { vapi } from '@/lib/vapi.sdk';// ✅ FIXED: Added missing import
-import { interviewer } from '@/constants';
+import { getGeminiLiveClient, type GeminiMessage } from '@/lib/gemini-live';
 import { createFeedback } from '@/lib/actions/general.action';
 import { logger } from '@/lib/logger';
 
@@ -16,111 +15,72 @@ enum CallStatus {
   FINISHED = 'FINISHED'
 }
 
-interface SavedMessage {
-  role: 'user' | 'system' | 'assistant';
-  content: string;
+interface AgentProps {
+  userName: string;
+  userId?: string;
+  interviewId?: string;
+  type: 'generate' | 'interview';
+  questions?: string[];
 }
 
-// ✅ FIXED: Added 'questions' to destructuring so it can be used below
 const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) => {
   const router = useRouter();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
-  const [messages, setMessages] = useState<SavedMessage[]>([]);
-  const triedFallbackRef = useRef(false);
-
-  // NEW: State for feedback generation
+  const [messages, setMessages] = useState<GeminiMessage[]>([]);
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  const hasProcessedCallEnd = useRef(false); // Prevent double execution
+  const hasProcessedCallEnd = useRef(false);
+  const geminiClient = useRef(getGeminiLiveClient());
 
   useEffect(() => {
-    const onCallStart = () => {
+    const client = geminiClient.current;
+
+    // Setup event handlers
+    client.on('onCallStart', () => {
       setCallStatus(CallStatus.ACTIVE);
-    };
+    });
 
-    const onCallEnd = () => {
+    client.on('onCallEnd', () => {
       setCallStatus(CallStatus.FINISHED);
-    };
+    });
 
-    const onMessage = (message: Message) => {
-      if (message.type === 'transcript' && message.transcriptType === 'final') {
-        const newMessage = {
-          role: message.role,
-          content: message.transcript,
-        };
-        setMessages((prev) => [...prev, newMessage]);
-      }
-    };
+    client.on('onTranscript', (message: GeminiMessage) => {
+      setMessages((prev) => [...prev, message]);
+    });
 
-    const onSpeechStart = () => {
+    client.on('onSpeechStart', () => {
       setIsSpeaking(true);
-    };
+    });
 
-    const onSpeechEnd = () => {
+    client.on('onSpeechEnd', () => {
       setIsSpeaking(false);
-    };
+    });
 
-    const formatError = (err: any) => {
-      if (!err && err !== 0) return String(err);
-      if (typeof err === 'string') return err;
-      if (err instanceof Error) return err.stack || err.message;
-      try {
-        return JSON.stringify(err);
-      } catch (e) {
-        return String(err);
-      }
-    };
-
-    const onError = (error: any) => {
-      const message = formatError(error);
-      logger.error(`Error in call: ${message}`);
-
-      try {
-        const isStartMethodError = error?.type === 'start-method-error';
-        const messages = (error?.error?.error?.message) || (error?.error?.message) || '';
-        const indicatesWorkflow = typeof messages === 'string' &&
-          (messages.includes('workflowId') || messages.includes('variableValues'));
-
-        if (isStartMethodError && indicatesWorkflow && !triedFallbackRef.current) {
-          triedFallbackRef.current = true;
-          if (callStatus === CallStatus.CONNECTING) {
-            logger.info('Vapi start failed for workflow payload — attempting fallback');
-            vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!)
-              .catch((e: any) => logger.error('Fallback start error:', formatError(e)));
-          }
-        }
-      } catch (e) {
-        // Defensive error handling
-      }
-    };
-
-    vapi.on('call-start', onCallStart);
-    vapi.on('call-end', onCallEnd);
-    vapi.on('message', onMessage);
-    vapi.on('speech-start', onSpeechStart);
-    vapi.on('speech-end', onSpeechEnd);
-    vapi.on('error', onError);
+    client.on('onError', (error: Error) => {
+      logger.error('Gemini Live error:', error);
+      setFeedbackError(error.message);
+    });
 
     return () => {
-      vapi.off('call-start', onCallStart);
-      vapi.off('call-end', onCallEnd);
-      vapi.off('message', onMessage);
-      vapi.off('speech-start', onSpeechStart);
-      vapi.off('speech-end', onSpeechEnd);
-      vapi.off('error', onError);
+      // Cleanup listeners
+      client.off('onCallStart');
+      client.off('onCallEnd');
+      client.off('onTranscript');
+      client.off('onSpeechStart');
+      client.off('onSpeechEnd');
+      client.off('onError');
     };
-  }, []); // Empty dependency array - only run once
+  }, []);
 
-  const handleGenerateFeedback = async (transcript: SavedMessage[]) => {
-    // Validation
+  const handleGenerateFeedback = async (transcript: GeminiMessage[]) => {
     if (!interviewId || !userId) {
-      setFeedbackError('Missing interview or user information. Please try again.');
+      setFeedbackError('Missing interview or user information.');
       return;
     }
 
     if (transcript.length === 0) {
-      setFeedbackError('No conversation recorded. Please try the interview again.');
+      setFeedbackError('No conversation recorded.');
       return;
     }
 
@@ -128,99 +88,136 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
     setFeedbackError(null);
 
     try {
+      // Convert GeminiMessage to expected format
+      const formattedTranscript = transcript.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
       const { success, feedbackId } = await createFeedback({
         interviewId,
         userId,
-        transcript,
+        transcript: formattedTranscript,
       });
 
       if (success && feedbackId) {
-        // Navigate to feedback page
         router.push(`/interview/${interviewId}/feedback`);
       } else {
-        setFeedbackError('Failed to generate feedback. Please try again.');
+        setFeedbackError('Failed to generate feedback.');
         setIsGeneratingFeedback(false);
       }
     } catch (error) {
-      console.error('Feedback generation error:', error);
-      setFeedbackError('An unexpected error occurred. Please try again.');
+      logger.error('Feedback generation error:', error);
+      setFeedbackError('An unexpected error occurred.');
       setIsGeneratingFeedback(false);
     }
   };
 
-  // FIXED: Prevent race condition and handle both paths properly
   useEffect(() => {
-    // Only process once when call finishes
     if (callStatus === CallStatus.FINISHED && !hasProcessedCallEnd.current) {
       hasProcessedCallEnd.current = true;
 
-      if (type === "generate") {
-        // Generation complete, go home
+      if (type === 'generate') {
         router.push('/');
-      } else if (type === "interview") {
-        // Interview complete, generate feedback
+      } else if (type === 'interview') {
         handleGenerateFeedback(messages);
       }
     }
-  }, [callStatus]); // ONLY depend on callStatus, not messages
+  }, [callStatus]);
 
-  const handleCall = () => {
+  const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
-    setFeedbackError(null); // Clear any previous errors
-    hasProcessedCallEnd.current = false; // Reset for new call
+    setFeedbackError(null);
+    hasProcessedCallEnd.current = false;
 
-    (async () => {
-      try {
-        if (type === "generate") {
-          await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-            variableValues: {
-              username: userName,
-              userid: userId,
-            },
-          });
-        } else {
-          let formattedQuestions = "";
-          if (questions && questions.length > 0) {
-            formattedQuestions = questions
-              .map((question) => `- ${question}`)
-              .join("\n");
-          }
+    try {
+      const client = geminiClient.current;
 
-          await vapi.start(interviewer, {
-            variableValues: {
-              questions: formattedQuestions,
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Failed to start call:', error);
-        setCallStatus(CallStatus.INACTIVE);
-        setFeedbackError('Failed to start call. Please check your connection and try again.');
+      if (type === 'generate') {
+        // For generation, we need to call the API after getting user input
+        await client.start({
+          systemInstruction: `You are a professional interview assistant. 
+Your job is to gather information about the job interview the user wants to prepare for.
+
+Ask the following questions one by one:
+1. What job role are you interviewing for?
+2. What is your experience level? (Junior/Mid/Senior)
+3. What technologies or tech stack will be used? (comma-separated)
+4. What type of interview questions do you prefer? (Technical/Behavioral/Mixed)
+5. How many questions would you like? (e.g., 5, 10, 15)
+
+After collecting all information, summarize it back to the user and inform them that the interview is being generated.
+
+User name: ${userName}
+User ID: ${userId}`,
+          voice: 'Puck', // Friendly voice for onboarding
+        });
+
+        // Note: You'll need to implement the API call logic based on transcript
+        // This would trigger your /api/vapi/generate endpoint
+      } else {
+        // For interview mode
+        const formattedQuestions = questions?.map(q => `- ${q}`).join('\n') || '';
+        
+        await client.start({
+          systemInstruction: `You are a professional job interviewer conducting a real-time voice interview.
+
+Interview Guidelines:
+- Follow these questions in order:
+${formattedQuestions}
+
+- Listen actively and acknowledge responses
+- Ask brief follow-ups if responses are vague
+- Keep conversation natural and flowing
+- Be professional yet warm and welcoming
+- Keep responses concise (voice optimized)
+- Thank the candidate and conclude properly when done
+
+Candidate name: ${userName}`,
+          voice: 'Charon', // Professional voice for interviews
+        });
       }
-    })();
+    } catch (error) {
+      logger.error('Failed to start call:', error);
+      setCallStatus(CallStatus.INACTIVE);
+      setFeedbackError('Failed to start call. Please check your microphone and try again.');
+    }
   };
 
   const handleDisconnect = () => {
     setCallStatus(CallStatus.FINISHED);
-    vapi.stop();
+    geminiClient.current.stop();
   };
 
-  const LatestMessage = messages[messages.length - 1]?.content || '';
-  const isCallInactiveorFinished = callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
+  const latestMessage = messages[messages.length - 1]?.content || '';
+  const isCallInactiveOrFinished = 
+    callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
     <>
       <div className="call-view">
         <div className="card-interviewer">
           <div className="avatar">
-            <Image src="/ai-avatar.png" alt="AI Interviewer Avatar" width={65} height={65} className="object-cover" />
+            <Image 
+              src="/ai-avatar.png" 
+              alt="AI Interviewer Avatar" 
+              width={65} 
+              height={65} 
+              className="object-cover" 
+            />
             {isSpeaking && <span className="animate-speak"></span>}
           </div>
           <h3>AI Interviewer</h3>
         </div>
         <div className="card-border">
           <div className="card-content">
-            <Image src="/user-avatar.png" alt={`${userName}'s Avatar`} width={540} height={540} className="rounded-full object-cover size-[120px]" />
+            <Image 
+              src="/user-avatar.png" 
+              alt={`${userName}'s Avatar`} 
+              width={540} 
+              height={540} 
+              className="rounded-full object-cover size-[120px]" 
+            />
             <h3>{userName}</h3>
           </div>
         </div>
@@ -229,30 +226,23 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
       {messages.length > 0 && (
         <div className="transcript-border">
           <div className="transcript">
-            <p
-              key={messages.length} // Use message count as key to trigger re-animation
-              className="animate-fadeIn" // Use the keyframe animation from globals.css
-            >
-              {LatestMessage}
+            <p key={messages.length} className="animate-fadeIn">
+              {latestMessage}
             </p>
           </div>
         </div>
       )}
 
-      {/* NEW: Loading state for feedback generation */}
       {isGeneratingFeedback && (
         <div className="text-center mt-6 p-6 bg-dark-200 rounded-lg">
           <div className="animate-spin text-4xl mb-4">⟳</div>
           <p className="text-primary-100 text-lg font-semibold">
             Analyzing your interview performance...
           </p>
-          <p className="text-light-100 mt-2">
-            This may take a few moments
-          </p>
+          <p className="text-light-100 mt-2">This may take a few moments</p>
         </div>
       )}
 
-      {/* NEW: Error handling with retry */}
       {feedbackError && (
         <div className="text-center mt-6 p-6 bg-destructive-100/10 border border-destructive-100 rounded-lg">
           <p className="text-destructive-100 font-semibold mb-4">
@@ -271,13 +261,17 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
 
       <div className="w-full flex justify-center">
         {callStatus !== CallStatus.ACTIVE && !isGeneratingFeedback ? (
-          <button className="relative btn-call" onClick={handleCall} disabled={isGeneratingFeedback}>
+          <button 
+            className="relative btn-call" 
+            onClick={handleCall} 
+            disabled={isGeneratingFeedback}
+          >
             <span className={cn(
               "absolute rounded-full opacity-75 animate-ping",
               callStatus !== CallStatus.CONNECTING && 'hidden'
             )} />
             <span>
-              {isCallInactiveorFinished ? 'Start Call' : 'Connecting...'}
+              {isCallInactiveOrFinished ? 'Start Call' : 'Connecting...'}
             </span>
           </button>
         ) : callStatus === CallStatus.ACTIVE ? (
