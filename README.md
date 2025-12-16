@@ -11,7 +11,6 @@ VueMaster is a Next.js web application that allows users to practice job intervi
 - **Authentication:** [Firebase Authentication](https://firebase.google.com/docs/auth)
 - **AI:**
   - **Interview Questions Generation:** [Google AI SDK](https://ai.google.dev/sdks) with the `gemini-2.5-pro` model.
-  - **Voice Conversation:** [Vapi AI SDK](https://vapi.ai/)
   - **Feedback Generation:** [Google AI SDK](https://ai.google.dev/sdks) with the `gemini-2.0-flash-001` model.
 
 ## Getting Started
@@ -40,15 +39,11 @@ FIREBASE_PROJECT_ID=
 FIREBASE_PRIVATE_KEY=
 FIREBASE_CLIENT_EMAIL=
 
-# Vapi AI
-NEXT_PUBLIC_VAPI_API_TOKEN=
-NEXT_PUBLIC_VAPI_WORKFLOW_ID=
-
 # Google AI
 GOOGLE_API_KEY=
 ```
 
-**Note:** You can get the Firebase configuration from your Firebase project console. The `FIREBASE_PRIVATE_KEY` should be the private key from your service account JSON file. The `NEXT_PUBLIC_VAPI_API_TOKEN` and `NEXT_PUBLIC_VAPI_WORKFLOW_ID` can be obtained from the Vapi dashboard. The `GOOGLE_API_KEY` can be obtained from the Google AI Studio.
+**Note:** You can get the Firebase configuration from your Firebase project console. The `FIREBASE_PRIVATE_KEY` should be the private key from your service account JSON file. The `GOOGLE_API_KEY` can be obtained from the Google AI Studio.
 
 ### Installation
 
@@ -81,7 +76,6 @@ To learn more about the technologies used in this project, take a look at the fo
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Firebase Documentation](https://firebase.google.com/docs) - learn about Firebase products and features.
-- [Vapi AI Documentation](https://vapi.ai/docs) - learn about the Vapi AI SDK.
 - [Google AI Documentation](https://ai.google.dev/docs) - learn about the Google AI SDK.
 
 ## Deploy on Vercel
