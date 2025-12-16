@@ -27,9 +27,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
   const [jdUrl, setJdUrl] = useState('')
   const [jdFile, setJdFile] = useState<File | null>(null)
 
-  // State for Resume
-  const [resumeFile, setResumeFile] = useState<File | null>(null)
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -66,15 +63,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       }
     }
 
-    if (resumeFile) {
-      const resumeValidation = validateFileUpload(resumeFile, {
-        allowedMimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-      })
-      if (!resumeValidation.valid) {
-        return toast.error(resumeValidation.error || "Invalid resume file")
-      }
-    }
-
     setIsLoading(true)
 
     try {
@@ -89,11 +77,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
         formData.append('jdInput', jdUrl)
       } else if (jdType === 'file' && jdFile) {
         formData.append('jdInput', jdFile)
-      }
-
-      // Append Resume
-      if (resumeFile) {
-        formData.append('resume', resumeFile)
       }
 
       const res = await fetch('/api/interview/generate', {
@@ -125,7 +108,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
         <CardHeader>
           <CardTitle>Create New Interview</CardTitle>
           <CardDescription>
-            Provide the job details and your resume to generate a tailored interview session.
+            Provide the job details to generate a tailored interview session.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,26 +175,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                   </div>
                 </TabsContent>
               </Tabs>
-            </div>
-
-            <div className="h-px bg-border my-6" />
-
-            {/* --- SECTION 2: RESUME --- */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Your Resume (Optional)</Label>
-              <div className="border rounded-md p-4 bg-secondary/20">
-                <div className="flex items-center gap-4">
-                  <Input 
-                    type="file" 
-                    accept=".pdf,.docx"
-                    className="cursor-pointer bg-background"
-                    onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Uploading your resume allows the AI to ask questions specific to your experience gaps.
-                </p>
-              </div>
             </div>
 
             {/* --- SUBMIT --- */}

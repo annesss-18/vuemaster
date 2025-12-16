@@ -13,7 +13,7 @@ const analysisSchema = z.object({
   jobTitle: z.string().describe("The specific job role title found in the JD"),
   jobLevel: z.string().describe("Seniority level (Junior, Mid, Senior, Lead, etc)"),
   techStack: z.array(z.string()).describe("List of key technologies mentioned"),
-  questions: z.array(z.string()).describe("5-7 strategic interview questions based on the gap between JD and Resume"),
+  questions: z.array(z.string()).describe("5-7 strategic interview questions based on the job description"),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
     // Inputs
     const jdType = formData.get('jdType') as string; // 'text' | 'url' | 'file'
     const jdInput = formData.get('jdInput'); // string (text/url) or File/Blob
-    const resumeFile = formData.get('resume'); // may be File/Blob or null
 
     if (!userId || !jdInput) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -48,35 +47,18 @@ export async function POST(req: NextRequest) {
       throw err;
     }
 
-    // 2. Process Resume (Optional)
-    let resumeText = "";
-    try {
-      if (resumeFile && typeof (resumeFile as unknown as { arrayBuffer?: unknown }).arrayBuffer === 'function') {
-        resumeText = await extractTextFromFile(resumeFile as unknown as File);
-      }
-    } catch (err) {
-      console.error('Resume processing error, resumeFile=', resumeFile, 'err=', err);
-      resumeText = '';
-    }
-
-    // 3. AI Analysis
+    // 2. AI Analysis
     const prompt = `
-      Analyze the following Job Description (JD) and Candidate Resume.
+      Analyze the following Job Description (JD).
       
       [JOB DESCRIPTION START]
       ${jdText.substring(0, 20000)} 
       [JOB DESCRIPTION END]
 
-      [RESUME START]
-      ${resumeText ? resumeText.substring(0, 20000) : "No resume provided."}
-      [RESUME END]
-
       Task:
       1. Identify the Job Role and Level.
       2. Extract the Tech Stack.
-      3. Generate interview questions. 
-         - If a Resume is provided, generate questions that verify the experience listed or probe into gaps relative to the JD.
-         - If no Resume, generate questions strictly based on JD requirements.
+      3. Generate interview questions strictly based on JD requirements.
     `;
 
     const { object } = await generateObject({
@@ -85,7 +67,7 @@ export async function POST(req: NextRequest) {
       prompt: prompt,
     });
 
-    // 4. Save to Database
+    // 3. Save to Database
     const docRef = await db.collection('interviews').add({
       userId,
       // Store ISO string for createdAt for consistency across reads and sorting
@@ -93,7 +75,7 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       // Saved Context for the Agent
       jobDescription: jdText,
-      resumeText: resumeText || null,
+      resumeText: null,
       // Extracted Metadata
       role: object.jobTitle,
       level: object.jobLevel,
