@@ -135,7 +135,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
             <div className="space-y-3">
               <Label className="text-base font-semibold">Job Description Source</Label>
               
-              <Tabs defaultValue="text" onValueChange={(v) => setJdType(v as any)} className="w-full">
+              <Tabs defaultValue="text" onValueChange={(v: string) => setJdType(v as 'text' | 'url' | 'file')} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="text" className="flex items-center gap-2">
                     <FileText className="w-4 h-4" /> Paste Text

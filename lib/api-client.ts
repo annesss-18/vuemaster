@@ -9,7 +9,7 @@ import { cacheManager, CACHE_TTL } from '@/lib/cache';
 interface RequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   timeout?: number;
   cache?: boolean;
   cacheTTL?: number;
@@ -38,7 +38,7 @@ class APIClient {
   /**
    * Perform an API request with error handling and retries
    */
-  async request<T = any>(
+  async request<T = unknown>(
     url: string,
     config: RequestConfig = {}
   ): Promise<T> {
@@ -111,7 +111,7 @@ class APIClient {
     url: string,
     method: string,
     headers: Record<string, string>,
-    body: any,
+    body: unknown,
     timeout: number
   ): Promise<T> {
     const controller = new AbortController();
@@ -163,28 +163,28 @@ class APIClient {
   /**
    * GET request
    */
-  get<T = any>(url: string, config?: RequestConfig) {
+  get<T = unknown>(url: string, config?: RequestConfig) {
     return this.request<T>(url, { ...config, method: 'GET' });
   }
 
   /**
    * POST request
    */
-  post<T = any>(url: string, body?: any, config?: RequestConfig) {
+  post<T = unknown>(url: string, body?: unknown, config?: RequestConfig) {
     return this.request<T>(url, { ...config, method: 'POST', body });
   }
 
   /**
    * PUT request
    */
-  put<T = any>(url: string, body?: any, config?: RequestConfig) {
+  put<T = unknown>(url: string, body?: unknown, config?: RequestConfig) {
     return this.request<T>(url, { ...config, method: 'PUT', body });
   }
 
   /**
    * DELETE request
    */
-  delete<T = any>(url: string, config?: RequestConfig) {
+  delete<T = unknown>(url: string, config?: RequestConfig) {
     return this.request<T>(url, { ...config, method: 'DELETE' });
   }
 

@@ -1,4 +1,6 @@
 // lib/gemini-live.ts - Native WebSocket Implementation for Browser
+import { logger } from '@/lib/logger';
+
 export type GeminiLiveConfig = {
   systemInstruction: string;
   voice?: 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Aoede';
@@ -26,17 +28,18 @@ export class GeminiLiveClient {
     onCallStart?: () => void;
     onCallEnd?: () => void;
     onError?: (error: Error) => void;
-    onToolCall?: (toolCall: any) => void;
+    onToolCall?: (toolCall: unknown) => void;
   } = {};
 
   constructor(private apiKey: string) { }
 
-  on(event: string, callback: Function) {
-    this.callbacks[event as keyof typeof this.callbacks] = callback as any;
+  on<K extends keyof GeminiLiveClient['callbacks']>(event: K, callback: NonNullable<GeminiLiveClient['callbacks'][K]>) {
+    // Assign using unknown intermediary to avoid explicit any
+    (this.callbacks as Record<string, unknown>)[String(event)] = callback as unknown;
   }
 
-  off(event: string) {
-    delete this.callbacks[event as keyof typeof this.callbacks];
+  off<K extends keyof GeminiLiveClient['callbacks']>(event: K) {
+    delete this.callbacks[event];
   }
 
   async start(config: GeminiLiveConfig) {
@@ -53,7 +56,7 @@ export class GeminiLiveClient {
       this.ws.binaryType = 'blob'; // Can also be 'arraybuffer'
 
       this.ws.onopen = () => {
-        console.log('✅ WebSocket connected');
+        logger.info('✅ WebSocket connected');
         this.isConnected = true;
 
         // Send setup message
@@ -69,20 +72,20 @@ export class GeminiLiveClient {
 
       this.ws.onmessage = async (event) => {
         try {
-          console.log('📨 Raw message type:', typeof event.data);
-          console.log('📨 Is Blob?', event.data instanceof Blob);
-          console.log('📨 Is ArrayBuffer?', event.data instanceof ArrayBuffer);
+          logger.info('📨 Raw message type:', typeof event.data);
+          logger.info('📨 Is Blob?', event.data instanceof Blob);
+          logger.info('📨 Is ArrayBuffer?', event.data instanceof ArrayBuffer);
 
           // Handle binary data (audio)
           if (event.data instanceof Blob) {
-            console.log('📦 Received binary data (Blob):', event.data.size, 'bytes');
+            logger.info('📦 Received binary data (Blob):', (event.data as Blob).size, 'bytes');
             await this.handleBinaryMessage(event.data);
             return;
           }
 
           // Handle ArrayBuffer
           if (event.data instanceof ArrayBuffer) {
-            console.log('📦 Received ArrayBuffer:', event.data.byteLength, 'bytes');
+            logger.info('📦 Received ArrayBuffer:', (event.data as ArrayBuffer).byteLength, 'bytes');
             const blob = new Blob([event.data]);
             await this.handleBinaryMessage(blob);
             return;
@@ -90,33 +93,33 @@ export class GeminiLiveClient {
 
           // Handle text data (JSON)
           if (typeof event.data === 'string') {
-            console.log('📝 Received text message, length:', event.data.length);
-            console.log('📝 First 100 chars:', event.data.substring(0, 100));
+            logger.info('📝 Received text message, length:', (event.data as string).length);
+            logger.info('📝 First 100 chars:', (event.data as string).substring(0, 100));
             const response = JSON.parse(event.data);
             this.handleServerMessage(response);
             return;
           }
 
-          console.warn('⚠️ Unknown message type:', typeof event.data, event.data);
+          logger.warn('⚠️ Unknown message type:', typeof event.data, event.data);
         } catch (error) {
-          console.error('❌ Error handling message:', error);
-          console.error('❌ Message data:', event.data);
+          logger.error('❌ Error handling message:', error);
+          logger.error('❌ Message data:', event.data);
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
+        logger.error('❌ WebSocket error:', error);
         this.callbacks.onError?.(new Error('WebSocket connection failed'));
       };
 
       this.ws.onclose = (event) => {
-        console.log('🔌 WebSocket closed:', event.code, event.reason);
+        logger.info('🔌 WebSocket closed:', event.code, event.reason);
         this.isConnected = false;
         this.callbacks.onCallEnd?.();
       };
 
     } catch (error) {
-      console.error('Failed to start:', error);
+      logger.error('Failed to start:', error);
       this.callbacks.onError?.(error as Error);
     }
   }
@@ -165,18 +168,19 @@ export class GeminiLiveClient {
 
     // Add system instruction if provided
     if (config.systemInstruction) {
-      (setupMessage.setup as any).system_instruction = {
+      const setupRecord = setupMessage.setup as Record<string, unknown>;
+      setupRecord['system_instruction'] = {
         parts: [{ text: config.systemInstruction }]
       };
     }
 
-    console.log('📤 Sending setup:', JSON.stringify(setupMessage, null, 2));
+    logger.info('📤 Sending setup:', JSON.stringify(setupMessage, null, 2));
     this.ws.send(JSON.stringify(setupMessage));
   }
 
   private async startAudioCapture() {
     try {
-      console.log('🎤 Requesting microphone access...');
+      logger.info('🎤 Requesting microphone access...');
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -188,7 +192,7 @@ export class GeminiLiveClient {
         }
       });
 
-      console.log('✅ Microphone access granted');
+      logger.info('✅ Microphone access granted');
 
       // Create MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -204,15 +208,15 @@ export class GeminiLiveClient {
       };
 
       this.mediaRecorder.onerror = (event) => {
-        console.error('❌ MediaRecorder error:', event);
+        logger.error('❌ MediaRecorder error:', event);
       };
 
       // Start recording in 250ms chunks
       this.mediaRecorder.start(250);
-      console.log('🎙️ Recording started');
+      logger.info('🎙️ Recording started');
 
     } catch (error) {
-      console.error('❌ Microphone access failed:', error);
+      logger.error('❌ Microphone access failed:', error);
       this.callbacks.onError?.(new Error('Microphone access denied'));
     }
   }
@@ -220,7 +224,7 @@ export class GeminiLiveClient {
   private async sendAudioChunk(blob: Blob) {
     try {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        console.warn('⚠️ WebSocket not ready, skipping audio chunk');
+        logger.warn('⚠️ WebSocket not ready, skipping audio chunk');
         return;
       }
 
@@ -228,7 +232,7 @@ export class GeminiLiveClient {
       const base64Audio = await this.blobToBase64(blob);
 
       if (!base64Audio || typeof base64Audio !== 'string') {
-        console.error('❌ Invalid base64 audio data');
+        logger.error('❌ Invalid base64 audio data');
         return;
       }
 
@@ -243,10 +247,10 @@ export class GeminiLiveClient {
 
       const messageStr = JSON.stringify(message);
       this.ws.send(messageStr);
-      console.log('📤 Sent audio chunk:', blob.size, 'bytes, base64 length:', base64Audio.length);
+      logger.info('📤 Sent audio chunk:', blob.size, 'bytes, base64 length:', base64Audio.length);
 
     } catch (error) {
-      console.error('❌ Error sending audio:', error);
+      logger.error('❌ Error sending audio:', error);
     }
   }
 
@@ -254,12 +258,10 @@ export class GeminiLiveClient {
     try {
       // Binary messages might be audio data
       // For now, log and skip (audio should come in JSON inlineData)
-      console.log('🔊 Binary audio data received, size:', blob.size);
+      logger.info('🔊 Binary audio data received, size:', blob.size);
 
       // If you want to handle raw binary audio:
       const arrayBuffer = await blob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-
       // Try to decode as audio
       if (this.audioContext) {
         try {
@@ -270,20 +272,29 @@ export class GeminiLiveClient {
             this.playNextInQueue();
           }
         } catch (decodeError) {
-          console.warn('⚠️ Could not decode binary audio:', decodeError);
+          logger.warn('⚠️ Could not decode binary audio:', decodeError);
         }
       }
     } catch (error) {
-      console.error('❌ Error handling binary message:', error);
+      logger.error('❌ Error handling binary message:', error);
     }
   }
 
-  private handleServerMessage(response: any) {
-    console.log('📥 Received:', JSON.stringify(response, null, 2));
+  private handleServerMessage(response: {
+    setupComplete?: boolean;
+    serverContent?: {
+      modelTurn?: { parts?: Array<{ text?: string; inlineData?: { data?: string; mimeType?: string } }> };
+      turnComplete?: boolean;
+    };
+    toolCall?: unknown;
+    error?: { message?: string } | string;
+    [key: string]: unknown;
+  }) {
+    logger.info('📥 Received:', JSON.stringify(response, null, 2));
 
     // Handle setup complete
     if (response.setupComplete) {
-      console.log('✅ Setup complete');
+      logger.info('✅ Setup complete');
       return;
     }
 
@@ -295,7 +306,7 @@ export class GeminiLiveClient {
         for (const part of modelTurn.parts) {
           // Handle text transcript
           if (part.text) {
-            console.log('💬 AI said:', part.text);
+            logger.info('💬 AI said:', part.text);
             this.callbacks.onTranscript?.({
               role: 'assistant',
               content: part.text,
@@ -304,7 +315,7 @@ export class GeminiLiveClient {
           }
 
           // Handle audio response
-          if (part.inlineData?.data) {
+          if (part.inlineData && typeof part.inlineData.data === 'string' && typeof part.inlineData.mimeType === 'string') {
             console.log('🔊 Received audio data');
             this.playAudio(part.inlineData.data, part.inlineData.mimeType);
           }
@@ -313,7 +324,7 @@ export class GeminiLiveClient {
 
       // Check if turn is complete
       if (response.serverContent.turnComplete) {
-        console.log('✅ Turn complete');
+        logger.info('✅ Turn complete');
       }
     }
 
@@ -327,8 +338,9 @@ export class GeminiLiveClient {
 
     // Handle errors
     if (response.error) {
-      console.error('❌ Server error:', response.error);
-      this.callbacks.onError?.(new Error(response.error.message));
+      logger.error('❌ Server error:', response.error);
+      const errMsg = typeof response.error === 'string' ? response.error : (response.error as { message?: string })?.message ?? 'Server error';
+      this.callbacks.onError?.(new Error(errMsg));
     }
   }
 
@@ -364,7 +376,7 @@ export class GeminiLiveClient {
       }
 
     } catch (error) {
-      console.error('❌ Error playing audio:', error);
+      logger.error('❌ Error playing audio:', error);
       this.callbacks.onSpeechEnd?.();
     }
   }
@@ -390,14 +402,14 @@ export class GeminiLiveClient {
     };
 
     source.start();
-    console.log('▶️ Playing audio chunk');
+    logger.info('▶️ Playing audio chunk');
   }
 
   private parsePCMFormat(mimeType: string) {
     // Example: "audio/pcm;rate=24000"
     const params = mimeType.split(';');
     let sampleRate = 24000;
-    let bitsPerSample = 16;
+    const bitsPerSample = 16;
 
     for (const param of params) {
       if (param.includes('rate=')) {
@@ -468,7 +480,7 @@ export class GeminiLiveClient {
   }
 
   stop() {
-    console.log('🛑 Stopping session...');
+    logger.info('🛑 Stopping session...');
 
     // Stop recording
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {

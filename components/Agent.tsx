@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { getGeminiLiveClient, type GeminiMessage } from '@/lib/gemini-live';
 import { createFeedback } from '@/lib/actions/general.action';
 import { logger } from '@/lib/logger';
@@ -99,7 +99,7 @@ const Agent = ({
     }
   }, [jobTitle, jobDescription, questions]);
 
-  const handleGenerateFeedback = async (transcript: GeminiMessage[]) => {
+  const handleGenerateFeedback = useCallback(async (transcript: GeminiMessage[]) => {
     if (!interviewId || !userId) {
       setFeedbackError('Missing interview or user information.');
       return;
@@ -120,24 +120,65 @@ const Agent = ({
         content: msg.content
       }));
 
-      const { success, feedbackId } = await createFeedback({
-        interviewId,
-        userId,
-        transcript: formattedTranscript,
-      });
+      // Try Server Action first
+      try {
+        const { success, feedbackId } = await createFeedback({
+          interviewId,
+          userId,
+          transcript: formattedTranscript,
+        });
 
-      if (success && feedbackId) {
-        router.push(`/interview/${interviewId}/feedback`);
-      } else {
-        setFeedbackError('Failed to generate feedback.');
-        setIsGeneratingFeedback(false);
+        if (success && feedbackId) {
+          router.push(`/interview/${interviewId}/feedback`);
+          return;
+        }
+
+        throw new Error('createFeedback returned failure');
+      } catch (err) {
+        // If Server Actions fail, fall back to the API route
+        logger.error('Server Action failed, attempting API fallback:', err);
+
+        // Detect the common invalid server action error
+        const errMsg = err instanceof Error ? err.message : String(err);
+        // Try fallback to API now
+        try {
+          const res = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interviewId, userId, transcript: formattedTranscript }),
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            logger.error('Fallback API returned non-ok:', res.status, text);
+            setFeedbackError('Failed to generate feedback via fallback API.');
+            setIsGeneratingFeedback(false);
+            return;
+          }
+
+          const data = await res.json();
+
+          if (data?.success && data?.feedbackId) {
+            router.push(`/interview/${interviewId}/feedback`);
+            return;
+          }
+
+          setFeedbackError('Failed to generate feedback via fallback API.');
+          setIsGeneratingFeedback(false);
+          return;
+        } catch (fallbackErr) {
+          logger.error('Fallback API error:', fallbackErr);
+          setFeedbackError('An unexpected error occurred.');
+          setIsGeneratingFeedback(false);
+          return;
+        }
       }
     } catch (error) {
       logger.error('Feedback generation error:', error);
       setFeedbackError('An unexpected error occurred.');
       setIsGeneratingFeedback(false);
     }
-  };
+  }, [interviewId, userId, router]);
 
   useEffect(() => {
     if (callStatus === CallStatus.FINISHED && !hasProcessedCallEnd.current) {
@@ -145,7 +186,7 @@ const Agent = ({
       // Automatically generate feedback when the interview ends
       handleGenerateFeedback(messages);
     }
-  }, [callStatus, messages]);
+  }, [callStatus, messages, handleGenerateFeedback]);
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);

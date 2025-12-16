@@ -8,12 +8,24 @@ import React from 'react'
 const page = async ({ params }: RouteParams) => {
 
     const { id } = await params;
+
+    // Guard: ensure route param exists
+    if (!id || typeof id !== 'string') {
+        redirect('/');
+    }
+
     const user = await getCurrentUser();
-    const interview = await getInterviewsById(id, user?.id);
+    if (!user) {
+        // Require authentication to view feedback
+        redirect('/sign-in');
+    }
+
+    const interview = await getInterviewsById(id, user.id);
     if (!interview) redirect('/');
+
     const feedback = await getFeedbackByInterviewId({
         interviewId: id,
-        userId: user?.id!
+        userId: user.id
     });
 
 
@@ -31,10 +43,8 @@ const page = async ({ params }: RouteParams) => {
         );
     }
 
-    // Safely access arrays with default empty array
-    const categories = feedback.categoryScoresArray || [];
-    const strengths = feedback.strengths || [];
-    const improvements = feedback.areasForImprovement || [];
+    //typed category items
+    type CategoryItem = { name: string; score: number; comment: string };
 
     const formatDate = (iso?: string) => {
         if (!iso) return 'N/A';
@@ -76,7 +86,7 @@ const page = async ({ params }: RouteParams) => {
             </section>
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {Array.isArray(feedback.categoryScoresArray) && feedback.categoryScoresArray.map((cat: any) => (
+                {Array.isArray(feedback.categoryScoresArray) && feedback.categoryScoresArray.map((cat: CategoryItem) => (
                     <article key={cat.name} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="font-semibold">{cat.name}</h3>

@@ -27,9 +27,10 @@ export async function signUp(params: SignUpParams) {
         }
 
     }
-    catch (e: any) {
+    catch (e: unknown) {
         logger.error('Error signing up user:', e);
-        if (e.code === 'auth/email-already-exists') {
+        const err = e as { code?: string } | undefined;
+        if (err?.code === 'auth/email-already-exists') {
             return {
                 success: false,
                 message: 'Email already in use'
@@ -60,7 +61,7 @@ export async function signIn(params: SignInParams) {
             message: 'Signed in successfully'
         };
     }
-    catch (e: any) {
+    catch (e: unknown) {
         logger.error('Error signing in user:', e);
         return {
             success: false,
@@ -108,8 +109,8 @@ export async function getCurrentUser(): Promise<User | null> {
         } as User;
     }
 
-    catch (e) {
-        logger.log(e);
+    catch (e: unknown) {
+        logger.error('Error verifying session cookie:', e);
         return null;
     }
 }

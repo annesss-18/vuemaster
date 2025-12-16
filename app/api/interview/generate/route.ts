@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     try {
       if (jdType === 'url' && typeof jdInput === 'string') {
         jdText = await extractTextFromUrl(jdInput);
-      } else if (jdType === 'file' && jdInput && typeof (jdInput as any).arrayBuffer === 'function') {
+      } else if (jdType === 'file' && jdInput && typeof (jdInput as unknown as { arrayBuffer?: unknown }).arrayBuffer === 'function') {
         // Accept File or Blob-like objects from FormData
         jdText = await extractTextFromFile(jdInput as unknown as File);
       } else if (typeof jdInput === 'string') {
@@ -44,19 +44,18 @@ export async function POST(req: NextRequest) {
         throw new Error('Invalid job description input');
       }
     } catch (err) {
-      console.error('JD processing error, jdType=', jdType, 'jdInput=', jdInput);
+      console.error('JD processing error, jdType=', jdType, 'jdInput=', jdInput, 'err=', err);
       throw err;
     }
 
     // 2. Process Resume (Optional)
     let resumeText = "";
     try {
-      if (resumeFile && typeof (resumeFile as any).arrayBuffer === 'function') {
+      if (resumeFile && typeof (resumeFile as unknown as { arrayBuffer?: unknown }).arrayBuffer === 'function') {
         resumeText = await extractTextFromFile(resumeFile as unknown as File);
       }
     } catch (err) {
-      console.error('Resume processing error, resumeFile=', resumeFile);
-      // proceed without resume rather than failing the whole request
+      console.error('Resume processing error, resumeFile=', resumeFile, 'err=', err);
       resumeText = '';
     }
 
@@ -89,7 +88,8 @@ export async function POST(req: NextRequest) {
     // 4. Save to Database
     const docRef = await db.collection('interviews').add({
       userId,
-      createdAt: new Date(),
+      // Store ISO string for createdAt for consistency across reads and sorting
+      createdAt: new Date().toISOString(),
       status: 'pending',
       // Saved Context for the Agent
       jobDescription: jdText,

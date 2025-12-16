@@ -9,11 +9,11 @@ import { getInterviewsByUserId, getLatestInterviews } from '@/lib/actions/genera
 const page = async () => {
   const user = await getCurrentUser();
   const [userInterviews, latestInterviews] = await Promise.all([
-    getInterviewsByUserId(user?.id!),
-    getLatestInterviews({ userId: user?.id! })
+    user ? getInterviewsByUserId(user.id) : Promise.resolve(null),
+    getLatestInterviews({ userId: user?.id || '' })
   ]);
-  const hasPastInterviews = userInterviews && userInterviews?.length > 0;
-  const hasUpcomingInterviews = latestInterviews && latestInterviews?.length > 0;
+  const hasPastInterviews = !!(userInterviews && userInterviews.length > 0);
+  const hasUpcomingInterviews = !!(latestInterviews && latestInterviews.length > 0);
   return (
     <>
       <section className="card-cta">
@@ -36,7 +36,7 @@ const page = async () => {
             userInterviews?.map((interview) => (
               <InterviewCard {...interview} key={interview.id} />
             ))) : (
-            <p>You haven't taken any interviews yet</p>
+            <p>You have not taken any interviews yet</p>
           )}
         </div>
       </section>
@@ -49,7 +49,7 @@ const page = async () => {
             latestInterviews?.map((interview) => (
               <InterviewCard {...interview} key={interview.id} />
             ))) : (
-            <p>There are no new interview's available right now.</p>
+            <p>There are no new interviews available right now.</p>
           )}
         </div>
       </section>

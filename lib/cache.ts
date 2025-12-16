@@ -9,7 +9,7 @@ interface CacheOptions {
 }
 
 class CacheManager {
-  private memoryCache = new Map<string, { value: any; expiresAt: number }>();
+  private memoryCache = new Map<string, { value: unknown; expiresAt: number }>();
 
   /**
    * Get value from cache (memory first, then localStorage)
@@ -19,7 +19,7 @@ class CacheManager {
     const cached = this.memoryCache.get(key);
     if (cached) {
       if (cached.expiresAt > Date.now()) {
-        return cached.value;
+        return cached.value as T;
       }
       this.memoryCache.delete(key);
     }
@@ -103,7 +103,7 @@ export const cacheManager = new CacheManager();
  *   const cachedFetch = memoizeAsync(fetchData, { key: 'myData', ttl: 60000 });
  *   const result = await cachedFetch();
  */
-export function memoizeAsync<T, Args extends any[]>(
+export function memoizeAsync<T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
   options: CacheOptions
 ): (...args: Args) => Promise<T> {

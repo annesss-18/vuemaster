@@ -12,7 +12,7 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
         .orderBy('createdAt', 'desc')
         .get();
 
-    return interview.docs.map((doc) => ({
+    return interview.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({
 
         ...doc.data(),
         id: doc.id
@@ -29,7 +29,7 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
         .limit(limit)
         .get();
 
-    return interview.docs.map((doc) => ({
+    return interview.docs.map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({
 
         ...doc.data(),
         id: doc.id
@@ -76,7 +76,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
                 `-${sentence.role}: ${sentence.content}`
             )).join('');
 
-        const { object: { totalScore, categoryScores, strengths, areasForImprovement, finalAssessment } } = await generateObject({
+        const genResult = await generateObject({
             model: google('gemini-2.0-flash-001'),
             schema: feedbackSchema,
             prompt: `
@@ -95,34 +95,41 @@ export async function createFeedback(params: CreateFeedbackParams) {
                 "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
         })
 
-        // Convert the named categoryScores object into an ordered array
-        // for UI display while also storing the object for easy lookup.
+        // Safely extract and validate AI output, using defaults when needed
+        const aiObj = (genResult as unknown as { object?: unknown })?.object as Record<string, unknown> | undefined ?? {};
+
+        const totalScore = typeof aiObj.totalScore === 'number' ? aiObj.totalScore : 0;
+        const categoryScores = typeof aiObj.categoryScores === 'object' && aiObj.categoryScores ? aiObj.categoryScores : {};
+        const strengths = Array.isArray(aiObj.strengths) ? aiObj.strengths : [];
+        const areasForImprovement = Array.isArray(aiObj.areasForImprovement) ? aiObj.areasForImprovement : [];
+        const finalAssessment = typeof aiObj.finalAssessment === 'string' ? aiObj.finalAssessment : '';
+
+        const getScore = (path: string[], fallbackScore = 0, fallbackComment = '') => {
+            let cur: unknown = categoryScores as unknown;
+            try {
+                for (const p of path) {
+                    if (cur && typeof cur === 'object') {
+                        cur = (cur as Record<string, unknown>)[p];
+                    } else {
+                        cur = undefined;
+                        break;
+                    }
+                }
+
+                const scoreField = cur && typeof (cur as Record<string, unknown>)['score'] === 'number' ? (cur as Record<string, unknown>)['score'] as number : fallbackScore;
+                const commentField = cur && typeof (cur as Record<string, unknown>)['comment'] === 'string' ? (cur as Record<string, unknown>)['comment'] as string : fallbackComment;
+                return { score: scoreField, comment: commentField };
+            } catch {
+                return { score: fallbackScore, comment: fallbackComment };
+            }
+        };
+
         const categoryScoresArray = [
-            {
-                name: 'Communication Skills',
-                score: categoryScores.communicationSkills.score,
-                comment: categoryScores.communicationSkills.comment,
-            },
-            {
-                name: 'Technical Knowledge',
-                score: categoryScores.technicalKnowledge.score,
-                comment: categoryScores.technicalKnowledge.comment,
-            },
-            {
-                name: 'Problem Solving',
-                score: categoryScores.problemSolving.score,
-                comment: categoryScores.problemSolving.comment,
-            },
-            {
-                name: 'Cultural Fit',
-                score: categoryScores.culturalFit.score,
-                comment: categoryScores.culturalFit.comment,
-            },
-            {
-                name: 'Confidence and Clarity',
-                score: categoryScores.confidenceAndClarity.score,
-                comment: categoryScores.confidenceAndClarity.comment,
-            },
+            { name: 'Communication Skills', ...getScore(['communicationSkills']) },
+            { name: 'Technical Knowledge', ...getScore(['technicalKnowledge']) },
+            { name: 'Problem Solving', ...getScore(['problemSolving']) },
+            { name: 'Cultural Fit', ...getScore(['culturalFit']) },
+            { name: 'Confidence and Clarity', ...getScore(['confidenceAndClarity']) },
         ];
 
         const feedback = await db.collection('feedback').add({
@@ -136,7 +143,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
             areasForImprovement,
             finalAssessment,
             createdAt: new Date().toISOString(),
-        })
+        });
         return {
             success: true,
             feedbackId: feedback.id

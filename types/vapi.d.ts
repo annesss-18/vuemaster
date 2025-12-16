@@ -27,7 +27,7 @@ interface TranscriptMessage extends BaseMessage {
   transcript: string;
 }
 
-interface FunctionCallMessage<T = Record<string, any>> extends BaseMessage {
+interface FunctionCallMessage<T = Record<string, unknown>> extends BaseMessage {
   type: MessageTypeEnum.FUNCTION_CALL;
   functionCall: {
     name: string;

@@ -6,10 +6,14 @@ export async function extractTextFromFile(file: File): Promise<string> {
     const buffer = Buffer.from(arrayBuffer);
     
     if (file.type === 'application/pdf') {
-      const pdfModule = (await import('pdf-parse')) as any;
-      const pdfFn = pdfModule?.default ?? pdfModule;
-      const data = await pdfFn(buffer);
-      return data?.text ?? '';
+      // typed import for pdf-parse: module may export a default function or a named parse function
+      const pdfModule = await import('pdf-parse') as { default?: (buf: Buffer) => Promise<{ text?: string }>; parse?: (buf: Buffer) => Promise<{ text?: string }> };
+      const pdfFn = pdfModule.default ?? pdfModule.parse;
+      if (typeof pdfFn === 'function') {
+        const data = await pdfFn(buffer);
+        return data?.text ?? '';
+      }
+      return '';
     }
     
     // Fallback for text files

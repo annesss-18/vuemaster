@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Form } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
 import Image from "next/image"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -16,9 +15,6 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "fire
 import { signIn, signUp } from "@/lib/actions/auth.action"
 import { logger } from "@/lib/logger"
 
-const formSchema = z.object({
-  username: z.string().min(2).max(50),
-})
 
 const authFormSchema = (type: FormType) => {
   return z.object({

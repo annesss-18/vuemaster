@@ -77,7 +77,7 @@ export function getAuthErrorMessage(code: string): string {
 /**
  * Maps API error codes to user-friendly messages
  */
-export function getAPIErrorMessage(code: string, statusCode?: number): string {
+export function getAPIErrorMessage(code: string): string {
   const errorMessages: Record<string, string> = {
     'invalid-input': 'Please check your input and try again.',
     'unauthorized': 'You are not authorized to perform this action.',
@@ -104,7 +104,7 @@ export function getErrorMessage(error: unknown): string {
   }
 
   if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as any).message);
+    return String((error as { message?: unknown }).message);
   }
 
   return 'An unexpected error occurred.';
