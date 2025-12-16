@@ -36,6 +36,9 @@ interface Interview {
   userId: string;
   type: string;
   finalized: boolean;
+  jobDescription?: string; // The full text extracted from the JD input
+  resumeText?: string;     // The full text extracted from the uploaded resume
+  sourceType?: 'text' | 'link' | 'file'; // Metadata about how the JD was added
 }
 
 interface CreateFeedbackParams {

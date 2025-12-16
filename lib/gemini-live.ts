@@ -18,7 +18,7 @@ export class GeminiLiveClient {
   private audioQueue: AudioBuffer[] = [];
   private isPlaying = false;
   private isConnected = false;
-  
+
   private callbacks: {
     onTranscript?: (message: GeminiMessage) => void;
     onSpeechStart?: () => void;
@@ -26,9 +26,10 @@ export class GeminiLiveClient {
     onCallStart?: () => void;
     onCallEnd?: () => void;
     onError?: (error: Error) => void;
+    onToolCall?: (toolCall: any) => void;
   } = {};
 
-  constructor(private apiKey: string) {}
+  constructor(private apiKey: string) { }
 
   on(event: string, callback: Function) {
     this.callbacks[event as keyof typeof this.callbacks] = callback as any;
@@ -45,24 +46,24 @@ export class GeminiLiveClient {
 
       // Connect to Gemini WebSocket - v1beta is the correct version
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
-      
+
       this.ws = new WebSocket(wsUrl);
-      
+
       // Set binary type to handle audio data properly
       this.ws.binaryType = 'blob'; // Can also be 'arraybuffer'
 
       this.ws.onopen = () => {
         console.log('✅ WebSocket connected');
         this.isConnected = true;
-        
+
         // Send setup message
         this.sendSetup(config);
-        
+
         // Start audio capture after setup
         setTimeout(() => {
           this.startAudioCapture();
         }, 500);
-        
+
         this.callbacks.onCallStart?.();
       };
 
@@ -71,7 +72,7 @@ export class GeminiLiveClient {
           console.log('📨 Raw message type:', typeof event.data);
           console.log('📨 Is Blob?', event.data instanceof Blob);
           console.log('📨 Is ArrayBuffer?', event.data instanceof ArrayBuffer);
-          
+
           // Handle binary data (audio)
           if (event.data instanceof Blob) {
             console.log('📦 Received binary data (Blob):', event.data.size, 'bytes');
@@ -124,7 +125,7 @@ export class GeminiLiveClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const model = config.model || 'gemini-2.0-flash-exp';
-    
+
     const setupMessage = {
       setup: {
         model: `models/${model}`,
@@ -138,6 +139,27 @@ export class GeminiLiveClient {
             }
           }
         }
+        , tools:
+          [
+            {
+              function_declarations: [
+                {
+                  name: "create_interview",
+                  description: "Creates a new interview when all information (role, level, tech stack) is gathered.",
+                  parameters: {
+                    type: "OBJECT",
+                    properties: {
+                      role: { type: "STRING" },
+                      level: { type: "STRING" },
+                      techstack: { type: "STRING" },
+                      amount: { type: "NUMBER" }
+                    },
+                    required: ["role", "level"]
+                  }
+                }
+              ]
+            }
+          ]
       }
     };
 
@@ -155,7 +177,7 @@ export class GeminiLiveClient {
   private async startAudioCapture() {
     try {
       console.log('🎤 Requesting microphone access...');
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -204,7 +226,7 @@ export class GeminiLiveClient {
 
       // Convert blob to base64
       const base64Audio = await this.blobToBase64(blob);
-      
+
       if (!base64Audio || typeof base64Audio !== 'string') {
         console.error('❌ Invalid base64 audio data');
         return;
@@ -233,17 +255,17 @@ export class GeminiLiveClient {
       // Binary messages might be audio data
       // For now, log and skip (audio should come in JSON inlineData)
       console.log('🔊 Binary audio data received, size:', blob.size);
-      
+
       // If you want to handle raw binary audio:
       const arrayBuffer = await blob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      
+
       // Try to decode as audio
       if (this.audioContext) {
         try {
           const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
           this.audioQueue.push(audioBuffer);
-          
+
           if (!this.isPlaying) {
             this.playNextInQueue();
           }
@@ -268,7 +290,7 @@ export class GeminiLiveClient {
     // Handle server content (model's response)
     if (response.serverContent) {
       const modelTurn = response.serverContent.modelTurn;
-      
+
       if (modelTurn?.parts) {
         for (const part of modelTurn.parts) {
           // Handle text transcript
@@ -295,9 +317,12 @@ export class GeminiLiveClient {
       }
     }
 
-    // Handle tool calls (future use)
+    // Add to callbacks interface
+    
+
+    // Inside handleServerMessage
     if (response.toolCall) {
-      console.log('🔧 Tool call:', response.toolCall);
+      this.callbacks.onToolCall?.(response.toolCall);
     }
 
     // Handle errors
@@ -322,7 +347,7 @@ export class GeminiLiveClient {
 
       // Parse mime type to determine format
       let audioBuffer: ArrayBuffer = bytes.buffer;
-      
+
       // If it's PCM, convert to WAV
       if (mimeType && mimeType.includes('pcm')) {
         const format = this.parsePCMFormat(mimeType);
@@ -376,7 +401,10 @@ export class GeminiLiveClient {
 
     for (const param of params) {
       if (param.includes('rate=')) {
-        sampleRate = parseInt(param.split('=')[1]);
+        const rateValue = param.split('=')[1];
+        if (rateValue) {
+          sampleRate = parseInt(rateValue, 10);
+        }
       }
     }
 
@@ -426,7 +454,12 @@ export class GeminiLiveClient {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = (reader.result as string).split(',')[1];
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        if (!base64) {
+          reject(new Error('Failed to convert blob to base64'));
+          return;
+        }
         resolve(base64);
       };
       reader.onerror = reject;

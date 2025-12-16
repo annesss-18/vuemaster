@@ -19,11 +19,24 @@ interface AgentProps {
   userName: string;
   userId?: string;
   interviewId?: string;
-  type: 'generate' | 'interview';
   questions?: string[];
+  jobTitle?: string;
+  jobLevel?: string;
+  jobDescription?: string;
+  resumeText?: string;
+  type?: "generate" | "interview";
 }
 
-const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) => {
+const Agent = ({ 
+  userName, 
+  userId, 
+  interviewId, 
+  questions, 
+  jobTitle, 
+  jobLevel, 
+  jobDescription, 
+  resumeText 
+}: AgentProps) => {
   const router = useRouter();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
@@ -73,6 +86,19 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
     };
   }, []);
 
+  // Validate interview data on mount
+  useEffect(() => {
+    const missingFields = [];
+    if (!jobTitle) missingFields.push('Job Title');
+    if (!jobDescription) missingFields.push('Job Description');
+    if (!questions || questions.length === 0) missingFields.push('Interview Questions');
+    
+    if (missingFields.length > 0) {
+      setFeedbackError(`Missing required interview context: ${missingFields.join(', ')}`);
+      logger.warn('Interview data validation failed:', { jobTitle, jobDescription, questions });
+    }
+  }, [jobTitle, jobDescription, questions]);
+
   const handleGenerateFeedback = async (transcript: GeminiMessage[]) => {
     if (!interviewId || !userId) {
       setFeedbackError('Missing interview or user information.');
@@ -116,14 +142,10 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
   useEffect(() => {
     if (callStatus === CallStatus.FINISHED && !hasProcessedCallEnd.current) {
       hasProcessedCallEnd.current = true;
-
-      if (type === 'generate') {
-        router.push('/');
-      } else if (type === 'interview') {
-        handleGenerateFeedback(messages);
-      }
+      // Automatically generate feedback when the interview ends
+      handleGenerateFeedback(messages);
     }
-  }, [callStatus]);
+  }, [callStatus, messages]);
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
@@ -133,50 +155,46 @@ const Agent = ({ userName, userId, type, interviewId, questions }: AgentProps) =
     try {
       const client = geminiClient.current;
 
-      if (type === 'generate') {
-        // For generation, we need to call the API after getting user input
-        await client.start({
-          systemInstruction: `You are a professional interview assistant. 
-Your job is to gather information about the job interview the user wants to prepare for.
-
-Ask the following questions one by one:
-1. What job role are you interviewing for?
-2. What is your experience level? (Junior/Mid/Senior)
-3. What technologies or tech stack will be used? (comma-separated)
-4. What type of interview questions do you prefer? (Technical/Behavioral/Mixed)
-5. How many questions would you like? (e.g., 5, 10, 15)
-
-After collecting all information, summarize it back to the user and inform them that the interview is being generated.
-
-User name: ${userName}
-User ID: ${userId}`,
-          voice: 'Puck', // Friendly voice for onboarding
-        });
-
-        // Note: You'll need to implement the API call logic based on transcript
-        // This would trigger your /api/vapi/generate endpoint
-      } else {
-        // For interview mode
-        const formattedQuestions = questions?.map(q => `- ${q}`).join('\n') || '';
-        
-        await client.start({
-          systemInstruction: `You are a professional job interviewer conducting a real-time voice interview.
-
-Interview Guidelines:
-- Follow these questions in order:
-${formattedQuestions}
-
-- Listen actively and acknowledge responses
-- Ask brief follow-ups if responses are vague
-- Keep conversation natural and flowing
-- Be professional yet warm and welcoming
-- Keep responses concise (voice optimized)
-- Thank the candidate and conclude properly when done
-
-Candidate name: ${userName}`,
-          voice: 'Charon', // Professional voice for interviews
-        });
+      // Guard clause to ensure we have the data we need
+      if (!jobTitle || !jobDescription || !questions || questions.length === 0) {
+        const missingFields = [];
+        if (!jobTitle) missingFields.push('Job Title');
+        if (!jobDescription) missingFields.push('Job Description');
+        if (!questions || questions.length === 0) missingFields.push('Interview Questions');
+        throw new Error(`Missing required interview context: ${missingFields.join(', ')}. Cannot start session.`);
       }
+
+      // Construct the Resume & JD aware system prompt
+      const systemInstruction = `
+      You are an expert technical interviewer conducting a professional voice interview.
+
+      SESSION CONTEXT:
+      - Candidate Name: ${userName}
+      - Target Role: ${jobTitle} ${jobLevel ? `(${jobLevel})` : ''}
+
+      JOB DESCRIPTION (Reference Only - Do not read aloud):
+      ${jobDescription}
+
+      CANDIDATE RESUME (Reference Only - Do not read aloud):
+      ${resumeText || "No resume provided."}
+
+      PREPARED QUESTIONS:
+      ${questions.map((q: string) => `- ${q}`).join('\n')}
+
+      INTERVIEW GUIDELINES:
+      1. Start by professionally welcoming the candidate to the interview for the ${jobTitle} role.
+      2. Ask the prepared questions one by one, but feel free to ask follow-up questions if the candidate's answer is vague or contradicts their resume.
+      3. Use the Job Description as a baseline for "correct" or "desired" answers.
+      4. Compare their spoken answers to their Resume experience where applicable.
+      5. Keep your responses concise and conversational (optimized for voice).
+      6. When the interview is over, thank the candidate and end the conversation.
+      `;
+
+      await client.start({
+        systemInstruction: systemInstruction,
+        voice: 'Charon', // Professional, deep voice suitable for interviewing
+      });
+
     } catch (error) {
       logger.error('Failed to start call:', error);
       setCallStatus(CallStatus.INACTIVE);
@@ -190,7 +208,7 @@ Candidate name: ${userName}`,
   };
 
   const latestMessage = messages[messages.length - 1]?.content || '';
-  const isCallInactiveOrFinished = 
+  const isCallInactiveOrFinished =
     callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
@@ -198,12 +216,12 @@ Candidate name: ${userName}`,
       <div className="call-view">
         <div className="card-interviewer">
           <div className="avatar">
-            <Image 
-              src="/ai-avatar.png" 
-              alt="AI Interviewer Avatar" 
-              width={65} 
-              height={65} 
-              className="object-cover" 
+            <Image
+              src="/ai-avatar.png"
+              alt="AI Interviewer Avatar"
+              width={65}
+              height={65}
+              className="object-cover"
             />
             {isSpeaking && <span className="animate-speak"></span>}
           </div>
@@ -211,12 +229,12 @@ Candidate name: ${userName}`,
         </div>
         <div className="card-border">
           <div className="card-content">
-            <Image 
-              src="/user-avatar.png" 
-              alt={`${userName}'s Avatar`} 
-              width={540} 
-              height={540} 
-              className="rounded-full object-cover size-[120px]" 
+            <Image
+              src="/user-avatar.png"
+              alt={`${userName}'s Avatar`}
+              width={540}
+              height={540}
+              className="rounded-full object-cover size-[120px]"
             />
             <h3>{userName}</h3>
           </div>
@@ -261,9 +279,9 @@ Candidate name: ${userName}`,
 
       <div className="w-full flex justify-center">
         {callStatus !== CallStatus.ACTIVE && !isGeneratingFeedback ? (
-          <button 
-            className="relative btn-call" 
-            onClick={handleCall} 
+          <button
+            className="relative btn-call"
+            onClick={handleCall}
             disabled={isGeneratingFeedback}
           >
             <span className={cn(

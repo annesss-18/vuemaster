@@ -12,7 +12,9 @@ const Page = async ({ params }: RouteParams) => {
   const { id } = await params;
   const interview = await getInterviewsById(id, user?.id);
 
-  if (!interview){ redirect('/')};
+  if (!interview) {
+    redirect('/');
+  }
 
   return(
     <>
@@ -32,6 +34,10 @@ const Page = async ({ params }: RouteParams) => {
         interviewId={id}
         type="interview"
         questions={interview?.questions}
+        jobTitle={interview?.role}
+        jobLevel={interview?.level}
+        jobDescription={interview?.jobDescription || ''}
+        resumeText={interview?.resumeText || ''}
       />
     </>
   );

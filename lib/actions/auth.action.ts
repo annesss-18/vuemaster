@@ -1,11 +1,7 @@
 'use server';
 
 import { db, auth } from "@/firebase/admin";
-import { log } from "console";
-import { doc, where } from "firebase/firestore";
 import { cookies } from "next/headers";
-import { email, success } from "zod";
-import { ca } from "zod/v4/locales";
 import { logger } from "../logger";
 
 const ONE_WEEK = 60 * 60 * 24 * 7;

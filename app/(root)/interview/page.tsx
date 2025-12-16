@@ -1,15 +1,28 @@
 import React from 'react'
-import Agent from '@/components/Agent'
+import CreateInterviewForm from '@/components/CreateInterviewForm' // Import the new form
 import { getCurrentUser } from '@/lib/actions/auth.action'
+import { redirect } from 'next/navigation'
 
-const page =  async () => {
+const InterviewPage = async () => {
   const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/sign-in')
+  }
+
   return (
-    <>
-    <h3>Interview Page</h3>
-    <Agent userName={user?.name!} userId={user?.id}   type="generate"/>
-    </>
+    <div className="container py-10">
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold tracking-tight">Interview Setup</h1>
+        <p className="text-muted-foreground mt-2">
+          Configure your session by providing the job context and your background.
+        </p>
+      </div>
+      
+      {/* Pass the userId to the client component */}
+      <CreateInterviewForm userId={user.id} />
+    </div>
   )
 }
 
-export default page
+export default InterviewPage

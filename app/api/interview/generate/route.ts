@@ -1,92 +1,112 @@
-import { generateText } from 'ai';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/firebase/admin'; // Ensure this points to your Admin SDK
+import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
-import { getRandomInterviewCover } from '@/lib/utils';
-import { db } from '@/firebase/admin';
-import { logger } from '@/lib/logger';
-import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { extractTextFromFile, extractTextFromUrl } from '@/lib/server-utils';
 
-export async function POST(request: NextRequest) {
+// Ensure we use Node runtime for pdf-parse support
+export const runtime = 'nodejs'; 
+
+// Define the schema for Gemini's output
+const analysisSchema = z.object({
+  jobTitle: z.string().describe("The specific job role title found in the JD"),
+  jobLevel: z.string().describe("Seniority level (Junior, Mid, Senior, Lead, etc)"),
+  techStack: z.array(z.string()).describe("List of key technologies mentioned"),
+  questions: z.array(z.string()).describe("5-7 strategic interview questions based on the gap between JD and Resume"),
+});
+
+export async function POST(req: NextRequest) {
   try {
-    const { type, role, level, techstack = '', amount, userid } = await request.json();
+    const formData = await req.formData();
+    const userId = formData.get('userId') as string;
+    
+    // Inputs
+    const jdType = formData.get('jdType') as string; // 'text' | 'url' | 'file'
+    const jdInput = formData.get('jdInput'); // string (text/url) or File/Blob
+    const resumeFile = formData.get('resume'); // may be File/Blob or null
 
-    // Validate inputs
-    if (!role || !level || !amount || !userid) {
-      return Response.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!userId || !jdInput) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    logger.info('Generating interview questions:', { role, level, amount });
+    // 1. Process Job Description
+    let jdText = "";
+    try {
+      if (jdType === 'url' && typeof jdInput === 'string') {
+        jdText = await extractTextFromUrl(jdInput);
+      } else if (jdType === 'file' && jdInput && typeof (jdInput as any).arrayBuffer === 'function') {
+        // Accept File or Blob-like objects from FormData
+        jdText = await extractTextFromFile(jdInput as unknown as File);
+      } else if (typeof jdInput === 'string') {
+        jdText = jdInput;
+      } else {
+        throw new Error('Invalid job description input');
+      }
+    } catch (err) {
+      console.error('JD processing error, jdType=', jdType, 'jdInput=', jdInput);
+      throw err;
+    }
 
-    const { text: questions } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
-      prompt: `Prepare ${amount} questions for a job interview.
-              
-Job Details:
-- Role: ${role}
-- Experience Level: ${level}
-- Tech Stack: ${techstack || 'Not specified'}
-- Focus: ${type} (balance between behavioral and technical)
+    // 2. Process Resume (Optional)
+    let resumeText = "";
+    try {
+      if (resumeFile && typeof (resumeFile as any).arrayBuffer === 'function') {
+        resumeText = await extractTextFromFile(resumeFile as unknown as File);
+      }
+    } catch (err) {
+      console.error('Resume processing error, resumeFile=', resumeFile);
+      // proceed without resume rather than failing the whole request
+      resumeText = '';
+    }
 
-Requirements:
-1. Return ONLY a JSON array of questions
-2. No additional text, no markdown formatting
-3. Questions should be clear and professional
-4. Avoid special characters that might break voice synthesis (/, *, etc.)
-5. Mix question types appropriately for the role
-6. For technical roles, include coding/system design questions
-7. For all roles, include behavioral questions
+    // 3. AI Analysis
+    const prompt = `
+      Analyze the following Job Description (JD) and Candidate Resume.
+      
+      [JOB DESCRIPTION START]
+      ${jdText.substring(0, 20000)} 
+      [JOB DESCRIPTION END]
 
-Example format:
-["Question 1 here", "Question 2 here", "Question 3 here"]`,
+      [RESUME START]
+      ${resumeText ? resumeText.substring(0, 20000) : "No resume provided."}
+      [RESUME END]
+
+      Task:
+      1. Identify the Job Role and Level.
+      2. Extract the Tech Stack.
+      3. Generate interview questions. 
+         - If a Resume is provided, generate questions that verify the experience listed or probe into gaps relative to the JD.
+         - If no Resume, generate questions strictly based on JD requirements.
+    `;
+
+    const { object } = await generateObject({
+      model: google('gemini-2.0-flash-exp'), // Or your preferred model
+      schema: analysisSchema,
+      prompt: prompt,
     });
 
-    // Parse and validate questions
-    let parsedQuestions: string[];
-    try {
-      parsedQuestions = JSON.parse(questions);
-      if (!Array.isArray(parsedQuestions) || parsedQuestions.length === 0) {
-        throw new Error('Invalid questions format');
-      }
-    } catch (parseError) {
-      logger.error('Failed to parse questions:', parseError);
-      return Response.json(
-        { success: false, error: 'Failed to generate valid questions' },
-        { status: 500 }
-      );
-    }
+    // 4. Save to Database
+    const docRef = await db.collection('interviews').add({
+      userId,
+      createdAt: new Date(),
+      status: 'pending',
+      // Saved Context for the Agent
+      jobDescription: jdText,
+      resumeText: resumeText || null,
+      // Extracted Metadata
+      role: object.jobTitle,
+      level: object.jobLevel,
+      techstack: object.techStack,
+      questions: object.questions,
+      type: 'interview',
+      finalized: false,
+    });
 
-    // Create interview document
-    const interview = {
-      role,
-      level,
-      techstack: techstack ? techstack.split(',').map((t: string) => t.trim()) : [],
-      type,
-      questions: parsedQuestions,
-      userId: userid,
-      finalized: true,
-      coverImage: getRandomInterviewCover(),
-      createdAt: new Date().toISOString(),
-    };
-
-    const docRef = await db.collection('interviews').add(interview);
-
-    logger.info('Interview created successfully:', docRef.id);
-
-    return Response.json({ 
-      success: true, 
-      interviewId: docRef.id 
-    }, { status: 200 });
+    return NextResponse.json({ success: true, interviewId: docRef.id });
 
   } catch (error) {
-    logger.error('Error in POST /api/interview/generate:', error);
-    return Response.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      },
-      { status: 500 }
-    );
+    console.error("Generate Interview Error:", error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
