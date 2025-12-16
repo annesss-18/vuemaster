@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Quantico } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const quantico = Quantico({
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
   <body className={`${quantico.className} antialiased pattern`}>
         {children}
+        <Analytics />
       </body>
     </html>
   );
