@@ -79,7 +79,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
   }
 
   return (
-    <div className="w-full max-w-md animate-fadeIn">
+    <div className="w-full max-w-md mx-auto animate-fadeIn">
       {/* Header Section */}
       <div className="text-center mb-8 space-y-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/20 border border-primary-400/30 backdrop-blur-md">
@@ -87,7 +87,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
           <span className="text-sm font-semibold text-primary-200">AI-Powered Interview Practice</span>
         </div>
         
-        <h1 className="text-4xl font-bold">
+        <h1 className="text-4xl font-bold text-white">
           {isSignIn ? 'Welcome Back' : 'Get Started'}
         </h1>
         

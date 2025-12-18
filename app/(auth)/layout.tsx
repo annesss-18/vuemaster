@@ -10,7 +10,11 @@ const AuthLayout = async ({ children }: { children : ReactNode }) => {
       redirect('/');
     }
   return (
-    <div className="auth-layout">{children}</div>
+    <div className="min-h-screen w-full flex items-center justify-center p-6 bg-dark-100">
+      <div className="w-full max-w-md">
+        {children}
+      </div>
+    </div>
   )
 }
 

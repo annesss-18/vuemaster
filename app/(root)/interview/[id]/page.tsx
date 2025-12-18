@@ -34,12 +34,12 @@ const Page = async ({ params }: RouteParams) => {
               {/* Avatar with Glow Effect */}
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <Image 
-                  src={getRandomInterviewCover()} 
-                  alt="interview-cover" 
-                  width={80} 
-                  height={80} 
-                  className="relative rounded-full object-cover size-20 ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50" 
+                <Image
+                  src={getRandomInterviewCover()}
+                  alt="interview-cover"
+                  width={80}
+                  height={80}
+                  className="relative rounded-full object-cover size-20 ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50"
                 />
               </div>
 
@@ -50,7 +50,7 @@ const Page = async ({ params }: RouteParams) => {
                     <Sparkles className="size-3 text-primary-300" />
                     <span className="text-xs font-semibold text-primary-200">Live Interview</span>
                   </div>
-                  
+
                   <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
                     {interview?.role} Interview
                   </h1>
@@ -62,12 +62,12 @@ const Page = async ({ params }: RouteParams) => {
                     <Briefcase className="size-4 text-primary-300" />
                     <span className="text-sm font-medium text-light-200 capitalize">{interview?.level || 'All Levels'}</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                     <Target className="size-4 text-accent-300" />
                     <span className="text-sm font-medium text-light-200 capitalize">{interview?.type}</span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                     <Clock className="size-4 text-info-100" />
                     <span className="text-sm font-medium text-light-200">~30 minutes</span>
