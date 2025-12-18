@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { FileText, Link as LinkIcon, Upload, Loader2, FileUp } from 'lucide-react'
+import { FileText, Link as LinkIcon, Upload, Loader2, FileUp, Sparkles, Zap, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,7 @@ interface CreateInterviewFormProps {
 export default function CreateInterviewForm({ userId }: CreateInterviewFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [currentStep, setCurrentStep] = useState<'input' | 'processing'>('input')
   
   // State for Job Description
   const [jdType, setJdType] = useState<'text' | 'url' | 'file'>('text')
@@ -64,6 +65,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
     }
 
     setIsLoading(true)
+    setCurrentStep('processing')
 
     try {
       const formData = new FormData()
@@ -97,101 +99,259 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       logger.error('Interview generation error:', error)
       const errorMessage = error instanceof Error ? error.message : "Something went wrong"
       toast.error(errorMessage)
+      setCurrentStep('input')
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create New Interview</CardTitle>
-          <CardDescription>
-            Provide the job details to generate a tailored interview session.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* --- SECTION 1: JOB DESCRIPTION --- */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Job Description Source</Label>
+    <div className="w-full max-w-4xl mx-auto p-6 animate-fadeIn">
+      {/* Header Section */}
+      <div className="text-center mb-12 space-y-4">
+        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/20 border border-primary-400/30 backdrop-blur-md">
+          <Sparkles className="size-4 text-primary-300 animate-pulse" />
+          <span className="text-sm font-semibold text-primary-200">AI Interview Generator</span>
+        </div>
+        
+        <h1 className="text-4xl md:text-5xl font-bold">
+          Create Your Custom{' '}
+          <span className="block mt-2 bg-gradient-to-r from-primary-300 via-accent-300 to-primary-400 bg-clip-text text-transparent">
+            Mock Interview
+          </span>
+        </h1>
+        
+        <p className="text-lg text-light-300 max-w-2xl mx-auto">
+          Our AI will analyze the job description and generate tailored interview questions just for you
+        </p>
+      </div>
+
+      {/* Steps Indicator */}
+      <div className="flex items-center justify-center gap-4 mb-12">
+        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${
+          currentStep === 'input' 
+            ? 'bg-primary-500/20 border-2 border-primary-400/50' 
+            : 'bg-success-100/20 border-2 border-success-100/50'
+        }`}>
+          {currentStep === 'processing' ? (
+            <CheckCircle2 className="size-5 text-success-100" />
+          ) : (
+            <div className="size-5 rounded-full bg-primary-400 flex items-center justify-center text-xs font-bold text-white">1</div>
+          )}
+          <span className="font-semibold text-sm">Job Description</span>
+        </div>
+        
+        <div className="h-[2px] w-16 bg-gradient-to-r from-primary-400/50 to-accent-300/50" />
+        
+        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${
+          currentStep === 'processing'
+            ? 'bg-primary-500/20 border-2 border-primary-400/50'
+            : 'bg-dark-200 border-2 border-primary-400/20'
+        }`}>
+          <div className={`size-5 rounded-full flex items-center justify-center text-xs font-bold ${
+            currentStep === 'processing' ? 'bg-primary-400 text-white' : 'bg-dark-300 text-light-400'
+          }`}>
+            2
+          </div>
+          <span className="font-semibold text-sm">AI Analysis</span>
+        </div>
+      </div>
+
+      {/* Main Card */}
+      <div className="card-border animate-slideInLeft">
+        <Card className="bg-gradient-to-br from-dark-50 to-dark-100 border-none">
+          <CardHeader className="space-y-3">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <FileText className="size-6 text-primary-300" />
+              Job Description Input
+            </CardTitle>
+            <CardDescription className="text-light-300">
+              Choose how you'd like to provide the job description. Our AI will extract key requirements and generate relevant questions.
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-8">
               
-              <Tabs defaultValue="text" onValueChange={(v: string) => setJdType(v as 'text' | 'url' | 'file')} className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4">
-                  <TabsTrigger value="text" className="flex items-center gap-2">
-                    <FileText className="w-4 h-4" /> Paste Text
-                  </TabsTrigger>
-                  <TabsTrigger value="url" className="flex items-center gap-2">
-                    <LinkIcon className="w-4 h-4" /> URL Link
-                  </TabsTrigger>
-                  <TabsTrigger value="file" className="flex items-center gap-2">
-                    <Upload className="w-4 h-4" /> Upload File
-                  </TabsTrigger>
-                </TabsList>
+              {/* Input Method Selector */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold text-light-100 flex items-center gap-2">
+                  <Zap className="size-4 text-accent-300" />
+                  Choose Input Method
+                </Label>
+                
+                <Tabs 
+                  defaultValue="text" 
+                  onValueChange={(v: string) => setJdType(v as 'text' | 'url' | 'file')} 
+                  className="w-full"
+                >
+                  <TabsList className="grid w-full grid-cols-3 p-1 rounded-2xl backdrop-blur-sm bg-dark-200/50">
+                    <TabsTrigger 
+                      value="text" 
+                      className="flex items-center gap-2 rounded-xl transition-all duration-300"
+                    >
+                      <FileText className="size-4" /> 
+                      Paste Text
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="url" 
+                      className="flex items-center gap-2 rounded-xl transition-all duration-300"
+                    >
+                      <LinkIcon className="size-4" /> 
+                      URL Link
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="file" 
+                      className="flex items-center gap-2 rounded-xl transition-all duration-300"
+                    >
+                      <Upload className="size-4" /> 
+                      Upload File
+                    </TabsTrigger>
+                  </TabsList>
 
-                {/* Tab: Paste Text */}
-                <TabsContent value="text">
-                  <Textarea 
-                    placeholder="Paste the full job description here..."
-                    className="min-h-[200px]"
-                    value={jdText}
-                    onChange={(e) => setJdText(e.target.value)}
-                  />
-                </TabsContent>
+                  {/* Tab: Paste Text */}
+                  <TabsContent value="text" className="mt-6 space-y-4 animate-fadeIn">
+                    <div className="space-y-2">
+                      <Label htmlFor="jd-text" className="text-sm font-medium text-light-200">
+                        Job Description Text
+                      </Label>
+                      <Textarea 
+                        id="jd-text"
+                        placeholder="Paste the complete job description here...
 
-                {/* Tab: URL */}
-                <TabsContent value="url">
-                  <div className="flex gap-2">
-                    <Input 
-                      type="url" 
-                      placeholder="https://linkedin.com/jobs/..." 
-                      value={jdUrl}
-                      onChange={(e) => setJdUrl(e.target.value)}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Note: Ensure the URL is public and not behind a login wall.
-                  </p>
-                </TabsContent>
-
-                {/* Tab: File Upload */}
-                <TabsContent value="file">
-                  <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-accent/50 transition-colors cursor-pointer relative">
-                    <Input 
-                      type="file" 
-                      accept=".pdf,.txt,.docx"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={(e) => setJdFile(e.target.files?.[0] || null)}
-                    />
-                    <div className="flex flex-col items-center gap-2">
-                      <FileUp className="w-8 h-8 text-muted-foreground" />
-                      <p className="font-medium">
-                        {jdFile ? jdFile.name : "Click to Upload Job Description"}
+Example:
+We are looking for a Senior Full Stack Developer with 5+ years of experience in React, Node.js, and AWS..."
+                        className="min-h-[280px] bg-dark-200/50 border-2 border-primary-400/20 rounded-2xl transition-all duration-300 text-light-100 resize-none backdrop-blur-sm"
+                        value={jdText}
+                        onChange={(e) => setJdText(e.target.value)}
+                      />
+                      <p className="text-xs text-light-400 flex items-center gap-2">
+                        <span className={jdText.length >= 50 ? 'text-success-100' : 'text-warning-200'}>
+                          {jdText.length} characters
+                        </span>
+                        <span>•</span>
+                        <span>Minimum 50 characters required</span>
                       </p>
-                      <p className="text-xs text-muted-foreground">PDF, DOCX or TXT</p>
                     </div>
+                  </TabsContent>
+
+                  {/* Tab: URL */}
+                  <TabsContent value="url" className="mt-6 space-y-4 animate-fadeIn">
+                    <div className="space-y-2">
+                      <Label htmlFor="jd-url" className="text-sm font-medium text-light-200">
+                        Job Posting URL
+                      </Label>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-light-400" />
+                        <Input 
+                          id="jd-url"
+                          type="url" 
+                          placeholder="https://linkedin.com/jobs/view/..." 
+                          className="pl-12 bg-dark-200/50 border-2 border-primary-400/20 rounded-2xl transition-all duration-300 h-14 backdrop-blur-sm"
+                          value={jdUrl}
+                          onChange={(e) => setJdUrl(e.target.value)}
+                        />
+                      </div>
+                      <div className="p-4 rounded-xl bg-info-100/10 border border-info-100/30 backdrop-blur-sm">
+                        <p className="text-xs text-light-300 flex items-start gap-2">
+                          <span className="text-info-100 font-semibold">Note:</span>
+                          <span>Ensure the URL is publicly accessible and not behind a login wall. We support LinkedIn, Indeed, Glassdoor, and most job boards.</span>
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  {/* Tab: File Upload */}
+                  <TabsContent value="file" className="mt-6 space-y-4 animate-fadeIn">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-light-200">
+                        Upload Job Description
+                      </Label>
+                      <div className="relative border-2 border-dashed border-primary-400/30 rounded-2xl p-12 text-center hover:border-primary-400/50 hover:bg-dark-200/30 transition-all duration-300 cursor-pointer backdrop-blur-sm">
+                        <Input 
+                          type="file" 
+                          accept=".pdf,.txt,.docx"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          onChange={(e) => setJdFile(e.target.files?.[0] || null)}
+                        />
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="size-16 rounded-2xl bg-primary-500/20 border-2 border-primary-400/30 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:border-primary-400/50">
+                            <FileUp className="size-8 text-primary-300" />
+                          </div>
+                          <div className="space-y-2">
+                            <p className="font-semibold text-light-100">
+                              {jdFile ? (
+                                <span className="text-primary-300">{jdFile.name}</span>
+                              ) : (
+                                "Click to Upload or Drag & Drop"
+                              )}
+                            </p>
+                            <p className="text-sm text-light-400">
+                              Supports PDF, DOCX, and TXT files (Max 10MB)
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-6 border-t border-primary-400/20">
+                <Button 
+                  type="submit" 
+                  className="w-full min-h-16 rounded-2xl text-lg" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="size-6 animate-spin" />
+                      <div className="space-y-1 text-left">
+                        <div className="font-bold">Analyzing Job Description...</div>
+                        <div className="text-xs opacity-80">AI is extracting requirements and generating questions</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-3">
+                      <Sparkles className="size-6" />
+                      <span className="font-bold">Generate AI Interview</span>
+                      <Zap className="size-6" />
+                    </div>
+                  )}
+                </Button>
+              </div>
+
+              {/* Feature Highlights */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-primary-500/10 border border-primary-400/20 backdrop-blur-sm">
+                  <CheckCircle2 className="size-5 text-primary-300 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-light-100">Smart Analysis</p>
+                    <p className="text-xs text-light-400">AI extracts key skills and requirements</p>
                   </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* --- SUBMIT --- */}
-            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing Documents...
-                </>
-              ) : (
-                "Generate Interview"
-              )}
-            </Button>
-
-          </form>
-        </CardContent>
-      </Card>
+                </div>
+                
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-success-100/10 border border-success-100/20 backdrop-blur-sm">
+                  <CheckCircle2 className="size-5 text-success-100 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-light-100">Tailored Questions</p>
+                    <p className="text-xs text-light-400">Role-specific interview scenarios</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-accent-300/10 border border-accent-300/20 backdrop-blur-sm">
+                  <CheckCircle2 className="size-5 text-accent-300 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-light-100">Instant Feedback</p>
+                    <p className="text-xs text-light-400">Detailed performance analysis</p>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
