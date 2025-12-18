@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # Dependencies
 /node_modules
 /.pnp
@@ -12,10 +10,14 @@
 
 # Testing
 /coverage
+*.lcov
+.nyc_output
 
 # Next.js
 /.next/
 /out/
+build/
+dist/
 
 # Production
 /build
@@ -23,6 +25,8 @@
 # Miscellaneous
 .DS_Store
 *.pem
+*.log
+*.local
 
 # Debug
 npm-debug.log*
@@ -31,8 +35,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Environment variables
-.env*
-!/.env.example
+.env
+.env.*
+!.env.example
 
 # Vercel
 .vercel
@@ -41,6 +46,20 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# JSON
+# Editors
+.idea
+.vscode
+*.swp
+*.swo
+
+# Firebase
 *-firebase-adminsdk-*.json
 firebase-service-account*.json
+.firebase/
+firebase-debug.log
+
+# System Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
