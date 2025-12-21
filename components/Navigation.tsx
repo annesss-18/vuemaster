@@ -48,7 +48,7 @@ export default function Navigation() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
                   vuemaster
                 </h2>
@@ -62,14 +62,14 @@ export default function Navigation() {
             <div className="flex items-center gap-3">
               <Link
                 href="/interview"
-                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10 border border-primary-400/30 hover:bg-primary-500/20 hover:border-primary-400/50 transition-all duration-300 group"
+                className="hidden sm:flex items-center gap-3 px-6 py-3 min-h-[48px] rounded-full bg-primary-500/10 border border-primary-400/30 hover:bg-primary-500/20 hover:border-primary-400/50 transition-all duration-300 group"
               >
                 <Sparkles className="size-4 text-primary-300 group-hover:scale-110 transition-transform duration-300" />
                 <span className="text-sm font-semibold text-primary-200">New Interview</span>
               </Link>
 
               <button
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-dark-200/60 border border-light-400/20 hover:border-destructive-100/50 hover:bg-destructive-100/10 transition-all duration-300 group"
+                className="flex items-center gap-3 px-6 py-3 min-h-[48px] rounded-full bg-dark-200/60 border border-light-400/20 hover:border-destructive-100/50 hover:bg-destructive-100/10 transition-all duration-300 group"
                 onClick={handleSignOut}
               >
                 <LogOut className="size-4 text-light-400 group-hover:text-destructive-100 transition-colors duration-300" />

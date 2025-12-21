@@ -10,18 +10,18 @@ const quantico = Quantico({
 });
 
 export const metadata: Metadata = {
-  title: "vuemaster",
-  description: "An AI-powered platform for mock interviews",
+  title: "vuemaster - AI-Powered Mock Interview Platform",
+  description: "Master your technical interviews with AI-powered mock interviews. Get real-time feedback, practice coding challenges, and improve your skills with personalized assessments.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{  
+}: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
     <html lang="en" className="dark" data-scroll-behavior="smooth">
-  <body className={`${quantico.className} antialiased pattern`} suppressHydrationWarning>
+      <body className={`${quantico.className} antialiased pattern`} suppressHydrationWarning>
         {children}
         <Analytics />
       </body>

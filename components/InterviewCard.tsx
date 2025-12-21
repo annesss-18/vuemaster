@@ -50,12 +50,12 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
 
                         {/* Metadata Row */}
                         <div className="flex flex-row items-center gap-4 text-sm">
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
+                            <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                                 <Calendar className="size-4 text-primary-300" />
                                 <span className="text-light-200 font-medium">{formattedDate}</span>
                             </div>
 
-                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm ${scoreColor}`}>
+                            <div className={`flex items-center gap-3 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm ${scoreColor}`}>
                                 {hasScore ? (
                                     <>
                                         <Star className="size-4 fill-current" />
@@ -89,8 +89,8 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                         <DisplayTechIcons techStack={techstack} />
                     </div>
 
-                    <Button className="btn-primary group !px-4 !py-2.5">
-                        <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`} className="flex items-center gap-2">
+                    <Button className="btn-primary group !px-6 !py-3.5 !min-h-[48px]">
+                        <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`} className="flex items-center gap-3">
                             <span>{feedback ? "View Feedback" : "Start Interview"}</span>
                             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                         </Link>
