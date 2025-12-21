@@ -34,11 +34,16 @@ interface Interview {
   techstack: string[];
   createdAt: string;
   userId: string;
-  type: string;
+  type: 'technical' | 'behavioral' | 'system-design' | 'hr-cultural' | 'mixed'; // Interview type
   finalized: boolean;
   jobDescription?: string; // The full text extracted from the JD input
   resumeText?: string;     // The full text extracted from the uploaded resume
   sourceType?: 'text' | 'link' | 'file'; // Metadata about how the JD was added
+  // Optional metadata
+  companyName?: string;
+  location?: string;
+  experienceYears?: string;
+  status?: string;
 }
 
 interface CreateFeedbackParams {
@@ -96,7 +101,6 @@ interface SignUpParams {
   uid: string;
   name: string;
   email: string;
-  password: string;
 }
 
 type FormType = "sign-in" | "sign-up";

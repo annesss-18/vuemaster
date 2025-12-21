@@ -4,7 +4,7 @@ import { db, auth } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { logger } from "../logger";
 
-const ONE_WEEK = 60 * 60 * 24 * 7;
+const SESSION_EXPIRY = 60 * 60 * 24 * 7; // Session expires after 7 days
 
 export async function signUp(params: SignUpParams) {
     const { uid, name, email } = params;
@@ -47,13 +47,10 @@ export async function signIn(params: SignInParams) {
     const { email, idToken } = params;
 
     try {
-        const userRecord = await auth.getUserByEmail(email);
-        if (!userRecord) {
-            return {
-                success: false,
-                message: 'User not found. Please sign up first.'
-            };
-        }
+        // This will throw if user doesn't exist
+        await auth.getUserByEmail(email);
+
+        // Set session cookie
         await setSessionCookie(idToken);
 
         return {
@@ -63,9 +60,19 @@ export async function signIn(params: SignInParams) {
     }
     catch (e: unknown) {
         logger.error('Error signing in user:', e);
+        const err = e as { code?: string };
+
+        // Provide specific error messages
+        if (err?.code === 'auth/user-not-found') {
+            return {
+                success: false,
+                message: 'User not found. Please sign up first.'
+            };
+        }
+
         return {
             success: false,
-            message: 'Failed to sign in'
+            message: 'Failed to sign in. Please try again.'
         }
     }
 }
@@ -74,10 +81,10 @@ export async function setSessionCookie(idToken: string) {
     const cookieStore = await cookies();
     const isProduction = process.env.NODE_ENV === 'production' ||
         process.env.VERCEL_ENV === 'production';
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn: ONE_WEEK * 1000 })
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRY * 1000 })
 
     cookieStore.set('session', sessionCookie, {
-        maxAge: ONE_WEEK,
+        maxAge: SESSION_EXPIRY,
         httpOnly: true,
         secure: isProduction,
         path: '/',

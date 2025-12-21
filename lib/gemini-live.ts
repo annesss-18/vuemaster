@@ -182,6 +182,12 @@ export class GeminiLiveClient {
     try {
       logger.info('🎤 Requesting microphone access...');
 
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Your browser does not support microphone access. Please use a modern browser like Chrome, Firefox, or Edge.');
+      }
+
+      // Request microphone permission with detailed constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -193,11 +199,19 @@ export class GeminiLiveClient {
       });
 
       logger.info('✅ Microphone access granted');
+      logger.info('📊 Audio tracks:', stream.getAudioTracks().length);
+
+      // Verify we have audio tracks
+      if (stream.getAudioTracks().length === 0) {
+        throw new Error('No microphone input detected. Please ensure your microphone is connected and enabled.');
+      }
 
       // Create MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm';
+
+      logger.info('🎙️ Using MIME type:', mimeType);
 
       this.mediaRecorder = new MediaRecorder(stream, { mimeType });
 
@@ -209,15 +223,55 @@ export class GeminiLiveClient {
 
       this.mediaRecorder.onerror = (event) => {
         logger.error('❌ MediaRecorder error:', event);
+        this.callbacks.onError?.(new Error('Microphone recording failed. Please check your microphone settings.'));
+      };
+
+      this.mediaRecorder.onstart = () => {
+        logger.info('🎙️  MediaRecorder started successfully');
+      };
+
+      this.mediaRecorder.onstop = () => {
+        logger.info('🛑 MediaRecorder stopped');
       };
 
       // Start recording in 250ms chunks
       this.mediaRecorder.start(250);
-      logger.info('🎙️ Recording started');
+      logger.info('🎙️ Recording started successfully');
 
     } catch (error) {
       logger.error('❌ Microphone access failed:', error);
-      this.callbacks.onError?.(new Error('Microphone access denied'));
+
+      // Provide specific error messages based on the error type
+      let errorMessage = 'Microphone access failed.';
+
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+          case 'PermissionDeniedError':
+            errorMessage = 'Microphone access denied. Please enable microphone permissions in your browser settings and try again.';
+            break;
+          case 'NotFoundError':
+          case 'DevicesNotFoundError':
+            errorMessage = 'No microphone found. Please connect a microphone and try again.';
+            break;
+          case 'NotReadableError':
+          case 'TrackStartError':
+            errorMessage = 'Microphone is already in use by another application. Please close other applications using the microphone.';
+            break;
+          case 'OverconstrainedError':
+            errorMessage = 'Microphone does not meet the required specifications. Please try a different microphone.';
+            break;
+          case 'SecurityError':
+            errorMessage = 'Microphone access blocked due to security restrictions. Please ensure you\'re using HTTPS.';
+            break;
+          default:
+            errorMessage = `Microphone error: ${error.message}`;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      this.callbacks.onError?.(new Error(errorMessage));
     }
   }
 
@@ -329,7 +383,7 @@ export class GeminiLiveClient {
     }
 
     // Add to callbacks interface
-    
+
 
     // Inside handleServerMessage
     if (response.toolCall) {

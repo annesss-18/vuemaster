@@ -4,13 +4,28 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Sparkles, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { auth } from '@/firebase/client'
+import { signOut } from 'firebase/auth'
+import { toast } from 'sonner'
 
 export default function Navigation() {
   const router = useRouter()
 
-  const handleSignOut = () => {
-    // Clear any client-side auth state if needed
-    router.push('/sign-in')
+  const handleSignOut = async () => {
+    try {
+      // Sign out from Firebase Client
+      await signOut(auth)
+
+      // Call server to clear session cookie
+      await fetch('/api/auth/signout', { method: 'POST' })
+
+      // Redirect to sign-in
+      router.push('/sign-in')
+      toast.success('Signed out successfully')
+    } catch (error) {
+      console.error('Sign out error:', error)
+      toast.error('Failed to sign out. Please try again.')
+    }
   }
 
   return (
@@ -23,16 +38,16 @@ export default function Navigation() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative size-12 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                  <Image 
-                    src="/logo.svg" 
-                    alt="VueMaster Logo" 
-                    width={24} 
+                  <Image
+                    src="/logo.svg"
+                    alt="VueMaster Logo"
+                    width={24}
                     height={24}
                     className="relative z-10"
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
                   vuemaster
@@ -45,15 +60,15 @@ export default function Navigation() {
 
             {/* Navigation Items */}
             <div className="flex items-center gap-3">
-              <Link 
+              <Link
                 href="/interview"
                 className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/10 border border-primary-400/30 hover:bg-primary-500/20 hover:border-primary-400/50 transition-all duration-300 group"
               >
                 <Sparkles className="size-4 text-primary-300 group-hover:scale-110 transition-transform duration-300" />
                 <span className="text-sm font-semibold text-primary-200">New Interview</span>
               </Link>
-              
-              <button 
+
+              <button
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-dark-200/60 border border-light-400/20 hover:border-destructive-100/50 hover:bg-destructive-100/10 transition-all duration-300 group"
                 onClick={handleSignOut}
               >

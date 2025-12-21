@@ -1,5 +1,5 @@
 import React from 'react'
-import CreateInterviewForm from '@/components/CreateInterviewForm' // Import the new form
+import CreateInterviewForm from '@/components/CreateInterviewForm'
 import { getCurrentUser } from '@/lib/actions/auth.action'
 import { redirect } from 'next/navigation'
 
@@ -11,11 +11,13 @@ const InterviewPage = async () => {
   }
 
   return (
-    <div className="container py-10">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Interview Setup</h1>
-        <p className="text-muted-foreground mt-2">
-          Configure your session by providing the job context and your background.
+    <div className="w-full min-h-[calc(100vh-200px)] py-10">
+      <div className="mb-8 text-center space-y-3">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
+          Interview Setup
+        </h1>
+        <p className="text-light-300 text-base md:text-lg max-w-2xl mx-auto">
+          Configure your session by providing the job context and your background
         </p>
       </div>
       

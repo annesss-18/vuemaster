@@ -133,18 +133,27 @@ export const feedbackSchema = z.object({
   finalAssessment: z.string(),
 });
 
-export const interviewCovers = [
-  "/adobe.png",
-  "/amazon.png",
-  "/facebook.png",
-  "/hostinger.png",
-  "/pinterest.png",
-  "/quora.png",
-  "/reddit.png",
-  "/skype.png",
-  "/spotify.png",
-  "/telegram.png",
-  "/tiktok.png",
-  "/yahoo.png",
+// Company logos for interview covers (Simple Icons slugs)
+export const companyLogos = [
+  "adobe",
+  "amazon",
+  "meta", // Facebook
+  "hostinger",
+  "pinterest",
+  "quora",
+  "reddit",
+  "skype",
+  "spotify",
+  "telegram",
+  "tiktok",
+  "yahoo",
+  "google",
+  "microsoft",
+  "apple",
+  "netflix",
+  "airbnb",
+  "uber",
+  "slack",
+  "salesforce",
 ];
 

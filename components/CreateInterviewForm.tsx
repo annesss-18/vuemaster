@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { validateAndSanitizeURL, validateFileUpload } from '@/lib/validation'
 import { logger } from '@/lib/logger'
+import { cn } from '@/lib/utils'
 
 interface CreateInterviewFormProps {
   userId: string
@@ -21,25 +22,28 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState<'input' | 'processing'>('input')
-  
+
   // State for Job Description
   const [jdType, setJdType] = useState<'text' | 'url' | 'file'>('text')
   const [jdText, setJdText] = useState('')
   const [jdUrl, setJdUrl] = useState('')
   const [jdFile, setJdFile] = useState<File | null>(null)
 
+  // State for Interview Type
+  const [interviewType, setInterviewType] = useState<'technical' | 'behavioral' | 'system-design' | 'hr-cultural' | 'mixed'>('technical')
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validation
     if (jdType === 'text' && !jdText) {
       return toast.error("Please paste the job description")
     }
-    
+
     if (jdType === 'text' && jdText.length < 50) {
       return toast.error("Job description is too short. Please provide at least 50 characters.")
     }
-    
+
     if (jdType === 'url' && !jdUrl) {
       return toast.error("Please enter a valid URL")
     }
@@ -71,6 +75,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       const formData = new FormData()
       formData.append('userId', userId)
       formData.append('jdType', jdType)
+      formData.append('interviewType', interviewType)
 
       // Append JD Logic
       if (jdType === 'text') {
@@ -113,14 +118,14 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
           <Sparkles className="size-4 text-primary-300 animate-pulse" />
           <span className="text-sm font-semibold text-primary-200">AI Interview Generator</span>
         </div>
-        
+
         <h1 className="text-4xl md:text-5xl font-bold">
           Create Your Custom{' '}
           <span className="block mt-2 bg-gradient-to-r from-primary-300 via-accent-300 to-primary-400 bg-clip-text text-transparent">
             Mock Interview
           </span>
         </h1>
-        
+
         <p className="text-lg text-light-300 max-w-2xl mx-auto">
           Our AI will analyze the job description and generate tailored interview questions just for you
         </p>
@@ -128,11 +133,10 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
       {/* Steps Indicator */}
       <div className="flex items-center justify-center gap-4 mb-12">
-        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${
-          currentStep === 'input' 
-            ? 'bg-primary-500/20 border-2 border-primary-400/50' 
-            : 'bg-success-100/20 border-2 border-success-100/50'
-        }`}>
+        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${currentStep === 'input'
+          ? 'bg-primary-500/20 border-2 border-primary-400/50'
+          : 'bg-success-100/20 border-2 border-success-100/50'
+          }`}>
           {currentStep === 'processing' ? (
             <CheckCircle2 className="size-5 text-success-100" />
           ) : (
@@ -140,17 +144,15 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
           )}
           <span className="font-semibold text-sm">Job Description</span>
         </div>
-        
+
         <div className="h-[2px] w-16 bg-gradient-to-r from-primary-400/50 to-accent-300/50" />
-        
-        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${
-          currentStep === 'processing'
-            ? 'bg-primary-500/20 border-2 border-primary-400/50'
-            : 'bg-dark-200 border-2 border-primary-400/20'
-        }`}>
-          <div className={`size-5 rounded-full flex items-center justify-center text-xs font-bold ${
-            currentStep === 'processing' ? 'bg-primary-400 text-white' : 'bg-dark-300 text-light-400'
+
+        <div className={`flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300 ${currentStep === 'processing'
+          ? 'bg-primary-500/20 border-2 border-primary-400/50'
+          : 'bg-dark-200 border-2 border-primary-400/20'
           }`}>
+          <div className={`size-5 rounded-full flex items-center justify-center text-xs font-bold ${currentStep === 'processing' ? 'bg-primary-400 text-white' : 'bg-dark-300 text-light-400'
+            }`}>
             2
           </div>
           <span className="font-semibold text-sm">AI Analysis</span>
@@ -169,42 +171,92 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
               Choose how you'd like to provide the job description. Our AI will extract key requirements and generate relevant questions.
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-8">
-              
+
+              {/* Interview Type Selector */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold text-light-100 flex items-center gap-2">
+                  <Sparkles className="size-4 text-accent-300" />
+                  Interview Type
+                </Label>
+
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { value: 'technical', label: 'Technical Interview', desc: 'Coding, algorithms, and technical problem-solving' },
+                    { value: 'behavioral', label: 'Behavioral Interview', desc: 'Past experiences, soft skills, and situational questions' },
+                    { value: 'system-design', label: 'System Design Interview', desc: 'Architecture, scalability, and design decisions' },
+                    { value: 'hr-cultural', label: 'HR/Cultural Fit', desc: 'Company values, team fit, and career goals' },
+                    { value: 'mixed', label: 'Mixed Interview', desc: 'Combination of technical and behavioral questions' },
+                  ].map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setInterviewType(type.value as any)}
+                      className={cn(
+                        "p-4 rounded-xl text-left transition-all duration-300 border-2",
+                        interviewType === type.value
+                          ? "bg-primary-500/20 border-primary-400/50 shadow-glow"
+                          : "bg-dark-200/30 border-primary-400/20 hover:border-primary-400/40 hover:bg-dark-200/50"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "size-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all duration-300",
+                          interviewType === type.value
+                            ? "border-primary-300 bg-primary-400"
+                            : "border-light-400"
+                        )}>
+                          {interviewType === type.value && (
+                            <div className="size-2.5 rounded-full bg-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="font-semibold text-light-100">{type.label}</p>
+                          <p className="text-sm text-light-400">{type.desc}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="h-px bg-gradient-to-r from-transparent via-primary-400/30 to-transparent" />
+
               {/* Input Method Selector */}
               <div className="space-y-4">
                 <Label className="text-base font-semibold text-light-100 flex items-center gap-2">
                   <Zap className="size-4 text-accent-300" />
                   Choose Input Method
                 </Label>
-                
-                <Tabs 
-                  defaultValue="text" 
-                  onValueChange={(v: string) => setJdType(v as 'text' | 'url' | 'file')} 
+
+                <Tabs
+                  defaultValue="text"
+                  onValueChange={(v: string) => setJdType(v as 'text' | 'url' | 'file')}
                   className="w-full"
                 >
                   <TabsList className="grid w-full grid-cols-3 p-1 rounded-2xl backdrop-blur-sm bg-dark-200/50">
-                    <TabsTrigger 
-                      value="text" 
+                    <TabsTrigger
+                      value="text"
                       className="flex items-center gap-2 rounded-xl transition-all duration-300"
                     >
-                      <FileText className="size-4" /> 
+                      <FileText className="size-4" />
                       Paste Text
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="url" 
+                    <TabsTrigger
+                      value="url"
                       className="flex items-center gap-2 rounded-xl transition-all duration-300"
                     >
-                      <LinkIcon className="size-4" /> 
+                      <LinkIcon className="size-4" />
                       URL Link
                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="file" 
+                    <TabsTrigger
+                      value="file"
                       className="flex items-center gap-2 rounded-xl transition-all duration-300"
                     >
-                      <Upload className="size-4" /> 
+                      <Upload className="size-4" />
                       Upload File
                     </TabsTrigger>
                   </TabsList>
@@ -215,7 +267,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                       <Label htmlFor="jd-text" className="text-sm font-medium text-light-200">
                         Job Description Text
                       </Label>
-                      <Textarea 
+                      <Textarea
                         id="jd-text"
                         placeholder="Paste the complete job description here...
 
@@ -243,10 +295,10 @@ We are looking for a Senior Full Stack Developer with 5+ years of experience in 
                       </Label>
                       <div className="relative">
                         <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-light-400" />
-                        <Input 
+                        <Input
                           id="jd-url"
-                          type="url" 
-                          placeholder="https://linkedin.com/jobs/view/..." 
+                          type="url"
+                          placeholder="https://linkedin.com/jobs/view/..."
                           className="pl-12 bg-dark-200/50 border-2 border-primary-400/20 rounded-2xl transition-all duration-300 h-14 backdrop-blur-sm"
                           value={jdUrl}
                           onChange={(e) => setJdUrl(e.target.value)}
@@ -268,8 +320,8 @@ We are looking for a Senior Full Stack Developer with 5+ years of experience in 
                         Upload Job Description
                       </Label>
                       <div className="relative border-2 border-dashed border-primary-400/30 rounded-2xl p-12 text-center hover:border-primary-400/50 hover:bg-dark-200/30 transition-all duration-300 cursor-pointer backdrop-blur-sm">
-                        <Input 
-                          type="file" 
+                        <Input
+                          type="file"
                           accept=".pdf,.txt,.docx"
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                           onChange={(e) => setJdFile(e.target.files?.[0] || null)}
@@ -299,9 +351,9 @@ We are looking for a Senior Full Stack Developer with 5+ years of experience in 
 
               {/* Submit Button */}
               <div className="pt-6 border-t border-primary-400/20">
-                <Button 
-                  type="submit" 
-                  className="w-full min-h-16 rounded-2xl text-lg" 
+                <Button
+                  type="submit"
+                  className="w-full min-h-16 rounded-2xl text-lg"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -331,7 +383,7 @@ We are looking for a Senior Full Stack Developer with 5+ years of experience in 
                     <p className="text-xs text-light-400">AI extracts key skills and requirements</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-success-100/10 border border-success-100/20 backdrop-blur-sm">
                   <CheckCircle2 className="size-5 text-success-100 shrink-0 mt-0.5" />
                   <div className="space-y-1">
@@ -339,7 +391,7 @@ We are looking for a Senior Full Stack Developer with 5+ years of experience in 
                     <p className="text-xs text-light-400">Role-specific interview scenarios</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-accent-300/10 border border-accent-300/20 backdrop-blur-sm">
                   <CheckCircle2 className="size-5 text-accent-300 shrink-0 mt-0.5" />
                   <div className="space-y-1">

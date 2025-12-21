@@ -13,11 +13,11 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
     const normalisedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format('MMM D, YYYY');
     const hasScore = feedback?.totalScore !== undefined;
-    const scoreColor = 
+    const scoreColor =
         !hasScore ? 'text-light-400' :
-        feedback.totalScore >= 80 ? 'text-success-100' :
-        feedback.totalScore >= 60 ? 'text-warning-200' :
-        'text-destructive-100';
+            feedback.totalScore >= 80 ? 'text-success-100' :
+                feedback.totalScore >= 60 ? 'text-warning-200' :
+                    'text-destructive-100';
 
     return (
         <div className="card-border w-[380px] max-sm:w-full min-h-[450px] animate-fadeIn">
@@ -28,32 +28,33 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                         {normalisedType}
                     </div>
                 </div>
-                
+
                 {/* Header Section */}
                 <div className="relative z-10 space-y-4">
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-accent-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <Image 
-                            src={getRandomInterviewCover()} 
-                            alt="cover" 
-                            width={100} 
-                            height={100} 
+                        <Image
+                            src={getRandomInterviewCover()}
+                            alt="cover"
+                            width={100}
+                            height={100}
                             className="relative rounded-full object-cover size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50"
+                            unoptimized
                         />
                     </div>
-                    
+
                     <div className="space-y-2">
                         <h3 className="capitalize bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent font-bold">
                             {role} Interview
                         </h3>
-                        
+
                         {/* Metadata Row */}
                         <div className="flex flex-row items-center gap-4 text-sm">
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                                 <Calendar className="size-4 text-primary-300" />
                                 <span className="text-light-200 font-medium">{formattedDate}</span>
                             </div>
-                            
+
                             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm ${scoreColor}`}>
                                 {hasScore ? (
                                     <>
@@ -75,8 +76,8 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                 {/* Description */}
                 <div className="relative z-10 flex-1">
                     <p className="line-clamp-3 text-light-200 leading-relaxed">
-                        {feedback 
-                            ? feedback.finalAssessment 
+                        {feedback
+                            ? feedback.finalAssessment
                             : "Ready to showcase your skills? Complete this interview to receive detailed feedback and improve your performance."
                         }
                     </p>
@@ -87,7 +88,7 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                     <div className="flex-1">
                         <DisplayTechIcons techStack={techstack} />
                     </div>
-                    
+
                     <Button className="btn-primary group !px-4 !py-2.5">
                         <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`} className="flex items-center gap-2">
                             <span>{feedback ? "View Feedback" : "Start Interview"}</span>

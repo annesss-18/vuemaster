@@ -5,6 +5,7 @@
 
 import { APIError } from '@/lib/error-handling';
 import { cacheManager, CACHE_TTL } from '@/lib/cache';
+import { logger } from '@/lib/logger';
 
 interface RequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -59,7 +60,7 @@ class APIClient {
     if (cache && method === 'GET') {
       const cached = cacheManager.get<T>(cacheKey);
       if (cached) {
-        console.debug('Cache hit:', cacheKey);
+        logger.log('Cache hit:', cacheKey);
         return cached;
       }
     }
