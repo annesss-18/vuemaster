@@ -71,8 +71,18 @@ export const getTechLogos = (techArray?: string[]) => {
 };
 
 export const getRandomInterviewCover = () => {
+  // Ensure companyLogos array is not empty
+  if (!companyLogos || companyLogos.length === 0) {
+    return `${simpleIconsBaseURL}/google/4285F4`; // Default fallback
+  }
+
   const randomIndex = Math.floor(Math.random() * companyLogos.length);
   const company = companyLogos[randomIndex];
+
+  // Type guard to ensure company is defined
+  if (!company) {
+    return `${simpleIconsBaseURL}/google/4285F4`; // Default fallback
+  }
 
   // Use brand colors for company logos
   const companyColors: Record<string, string> = {
