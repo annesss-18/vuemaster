@@ -27,6 +27,7 @@ interface Feedback {
 }
 
 interface Interview {
+  // Mapped View Model: Compatible with both legacy 'interviews' collection and new 'interview_sessions'
   id: string;
   role: string;
   level: string;
@@ -116,4 +117,44 @@ interface InterviewFormProps {
 
 interface TechIconProps {
   techStack: string[];
+}
+
+interface InterviewTemplate {
+  id: string;
+  creatorId: string;        // ID of the user who generated this
+  isPublic: boolean;        // If true, appears in "Explore" section
+
+  // Metadata (Searchable)
+  role: string;
+  companyName?: string;     // Extracted from JD
+  level: 'Junior' | 'Mid' | 'Senior' | 'Staff' | 'Executive';
+  type: 'Screening' | 'Technical' | 'System Design' | 'Behavioral' | 'Case Study' | 'HR' | 'Mixed';
+  techStack: string[];
+  focusArea?: string[];     // e.g. ["Database Design", "React Hooks"]
+
+  // Content
+  jobDescription: string;
+  baseQuestions: string[];  // The "Gold Standard" questions for this role
+
+  // Metrics
+  usageCount: number;       // Incremented when a session is created
+  avgScore: number;         // Rolling average of feedback scores
+  createdAt: string;
+}
+
+interface InterviewSession {
+  id: string;
+  templateId: string;       // Reference to the parent template
+  userId: string;           // The candidate
+
+  // Personalization
+  resumeText?: string;      // Extracted text from uploaded resume
+
+  // State
+  status: 'setup' | 'active' | 'completed';
+  startedAt: string;
+  completedAt?: string;
+
+  // Result
+  feedbackId?: string;
 }

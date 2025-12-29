@@ -10,14 +10,14 @@ import { Briefcase, TrendingUp, Sparkles, Clock, Target } from "lucide-react";
 
 const Page = async ({ params }: RouteParams) => {
   const user = await getCurrentUser();
-  const { id } = await params;
+  const { sessionId } = await params;
 
   // Guard: ensure route param exists
-  if (!id || typeof id !== 'string') {
+  if (!sessionId || typeof sessionId !== 'string') {
     redirect('/');
   }
 
-  const interview = await getInterviewsById(id, user?.id);
+  const interview = await getInterviewsById(sessionId, user?.id);
 
   if (!interview) {
     redirect('/');
@@ -127,7 +127,7 @@ const Page = async ({ params }: RouteParams) => {
         <Agent
           userName={user?.name ?? ""}
           userId={user?.id}
-          interviewId={id}
+          interviewId={sessionId}
           type="interview"
           questions={interview?.questions}
           jobTitle={interview?.role}

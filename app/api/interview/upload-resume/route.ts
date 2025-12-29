@@ -5,33 +5,33 @@ import { withAuth } from '@/lib/api-middleware';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (req: NextRequest, user: User) => {
+export const POST = withAuth(async (req: NextRequest, user: any) => {
   try {
     const formData = await req.formData();
-    const interviewId = formData.get('interviewId') as string;
+    const sessionId = formData.get('sessionId') as string || formData.get('interviewId') as string;
     const resumeFile = formData.get('resume') as File;
 
-    if (!interviewId || !resumeFile) {
-      return NextResponse.json({ error: 'Missing interviewId or resume file' }, { status: 400 });
+    if (!sessionId || !resumeFile) {
+      return NextResponse.json({ error: 'Missing sessionId or resume file' }, { status: 400 });
     }
 
-    // Verify ownership: User must own the interview they're uploading to
-    const interviewDoc = await db.collection('interviews').doc(interviewId).get();
+    // Verify ownership: User must own the session they're uploading to
+    const sessionDoc = await db.collection('interview_sessions').doc(sessionId).get();
 
-    if (!interviewDoc.exists) {
-      return NextResponse.json({ error: 'Interview not found' }, { status: 404 });
+    if (!sessionDoc.exists) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const interviewData = interviewDoc.data();
-    if (interviewData?.userId !== user.id) {
+    const sessionData = sessionDoc.data();
+    if (sessionData?.userId !== user.id) {
       return NextResponse.json({
-        error: 'Forbidden. You can only upload resumes to your own interviews.'
+        error: 'Forbidden. You can only upload resumes to your own sessions.'
       }, { status: 403 });
     }
 
     const resumeText = await extractTextFromFile(resumeFile);
 
-    await db.collection('interviews').doc(interviewId).update({
+    await db.collection('interview_sessions').doc(sessionId).update({
       resumeText,
     });
 

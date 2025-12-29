@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { validateAndSanitizeURL, validateFileUpload } from '@/lib/validation'
 import { logger } from '@/lib/logger'
 import { cn } from '@/lib/utils'
+import InterviewEditor from './InterviewEditor'
 
 interface CreateInterviewFormProps {
   userId: string
@@ -21,21 +22,28 @@ interface CreateInterviewFormProps {
 export default function CreateInterviewForm({ userId }: CreateInterviewFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [draftData, setDraftData] = useState<any>(null)
+
   const [currentStep, setCurrentStep] = useState<'input' | 'processing'>('input')
 
   // State for Job Description
+  const [role, setRole] = useState('')
   const [jdType, setJdType] = useState<'text' | 'url' | 'file'>('text')
   const [jdText, setJdText] = useState('')
   const [jdUrl, setJdUrl] = useState('')
   const [jdFile, setJdFile] = useState<File | null>(null)
 
   // State for Interview Type
-  const [interviewType, setInterviewType] = useState<'technical' | 'behavioral' | 'system-design' | 'hr-cultural' | 'mixed'>('technical')
+  const [interviewType, setInterviewType] = useState<'Technical' | 'Behavioral' | 'System Design' | 'HR' | 'Mixed'>('Technical')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validation
+    if (!role.trim()) {
+      return toast.error("Please enter the Target Role (e.g. Senior Frontend Engineer)")
+    }
+
     if (jdType === 'text' && !jdText) {
       return toast.error("Please paste the job description")
     }
@@ -74,8 +82,14 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
     try {
       const formData = new FormData()
       formData.append('userId', userId)
+      formData.append('role', role)
       formData.append('jdType', jdType)
-      formData.append('interviewType', interviewType)
+      formData.append('type', interviewType) // Note: Changed 'interviewType' key to 'type' to match draft route expectation if needed, or update route to match. Draft route expects 'type'.
+      // Note: Draft route expects 'role' input if no JD, but here we assume JD is present or extracted.
+      // But wait, the draft route requires 'role' input or JD.
+      // The current form does NOT have a role input. It relies on AI to extract it.
+      // The draft route says: if (!jdText && !roleInput) ...
+      // So JD is sufficient.
 
       // Append JD Logic
       if (jdType === 'text') {
@@ -86,7 +100,8 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
         formData.append('jdInput', jdFile)
       }
 
-      const res = await fetch('/api/interview/generate', {
+      // We should use the NEW draft route
+      const res = await fetch('/api/interview/draft', {
         method: 'POST',
         body: formData,
       })
@@ -94,11 +109,11 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to generate interview")
+        throw new Error(data.error || "Failed to generate interview draft")
       }
 
-      toast.success("Interview generated successfully!")
-      router.push(`/interview/${data.interviewId}`)
+      setDraftData(data)
+      toast.success("Interview Draft Generated! Please review.")
 
     } catch (error) {
       logger.error('Interview generation error:', error)
@@ -108,6 +123,10 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (draftData) {
+    return <InterviewEditor initialDraft={draftData} />
   }
 
   return (
@@ -167,13 +186,27 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
               <FileText className="size-6 text-primary-300" />
               Job Description Input
             </CardTitle>
-          <CardDescription className="text-light-300">
-            Choose how you&apos;d like to provide the job description. Our AI will extract key requirements and generate relevant questions.
-          </CardDescription>
+            <CardDescription className="text-light-300">
+              Choose how you&apos;d like to provide the job description. Our AI will extract key requirements and generate relevant questions.
+            </CardDescription>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-8">
+
+              {/* Role Input */}
+              <div className="space-y-2">
+                <Label htmlFor="role" className="text-base font-semibold text-light-100">
+                  Target Role / Job Title <span className="text-primary-300">*</span>
+                </Label>
+                <Input
+                  id="role"
+                  placeholder="e.g. Senior Frontend Engineer, Product Manager"
+                  className="h-12 bg-dark-200/50 border-2 border-primary-400/20 rounded-xl transition-all duration-300 backdrop-blur-sm focus:border-primary-400/50"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                />
+              </div>
 
               {/* Interview Type Selector */}
               <div className="space-y-4">
@@ -183,18 +216,20 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                 </Label>
 
                 <div className="grid grid-cols-1 gap-3">
-                  { /* Use a typed array so we don't need any casts */ }
                   {([
-                    { value: 'technical', label: 'Technical Interview', desc: 'Coding, algorithms, and technical problem-solving' },
-                    { value: 'behavioral', label: 'Behavioral Interview', desc: 'Past experiences, soft skills, and situational questions' },
-                    { value: 'system-design', label: 'System Design Interview', desc: 'Architecture, scalability, and design decisions' },
-                    { value: 'hr-cultural', label: 'HR/Cultural Fit', desc: 'Company values, team fit, and career goals' },
-                    { value: 'mixed', label: 'Mixed Interview', desc: 'Combination of technical and behavioral questions' },
-                  ] as const).map((type) => (
+                    { value: 'Technical' as const, label: 'Technical Interview', desc: 'Coding, algorithms, and technical problem-solving' },
+                    { value: 'Behavioral' as const, label: 'Behavioral Interview', desc: 'Past experiences, soft skills, and situational questions' },
+                    { value: 'System Design' as const, label: 'System Design Interview', desc: 'Architecture, scalability, and design decisions' },
+                    { value: 'HR' as const, label: 'HR/Cultural Fit', desc: 'Company values, team fit, and career goals' },
+                    { value: 'Mixed' as const, label: 'Mixed Interview', desc: 'Combination of technical and behavioral questions' },
+                  ]).map((type) => (
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setInterviewType(type.value)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setInterviewType(type.value);
+                      }}
                       className={cn(
                         "p-4 rounded-xl text-left transition-all duration-300 border-2",
                         interviewType === type.value

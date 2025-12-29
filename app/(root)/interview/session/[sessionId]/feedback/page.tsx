@@ -4,12 +4,12 @@ import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import React from 'react';
-import { 
-  Award, 
-  TrendingUp, 
-  TrendingDown, 
-  Target, 
-  Calendar, 
+import {
+  Award,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  Calendar,
   Home,
   CheckCircle2,
   AlertCircle,
@@ -17,10 +17,10 @@ import {
 } from 'lucide-react';
 
 const Page = async ({ params }: RouteParams) => {
-  const { id } = await params;
+  const { sessionId } = await params;
 
   // Guard: ensure route param exists
-  if (!id || typeof id !== 'string') {
+  if (!sessionId || typeof sessionId !== 'string') {
     redirect('/');
   }
 
@@ -29,11 +29,11 @@ const Page = async ({ params }: RouteParams) => {
     redirect('/sign-in');
   }
 
-  const interview = await getInterviewsById(id, user.id);
+  const interview = await getInterviewsById(sessionId, user.id);
   if (!interview) redirect('/');
 
   const feedback = await getFeedbackByInterviewId({
-    interviewId: id,
+    interviewId: sessionId,
     userId: user.id
   });
 
@@ -51,8 +51,8 @@ const Page = async ({ params }: RouteParams) => {
               <h2 className="text-2xl font-bold text-light-100">No Feedback Available</h2>
               <p className="text-light-300">Complete the interview to receive detailed feedback on your performance</p>
             </div>
-            <Link 
-              href={`/interview/${id}`} 
+            <Link
+              href={`/interview/session/${sessionId}`}
               className="btn-primary inline-flex items-center gap-2"
             >
               <Target className="size-5" />
@@ -70,9 +70,9 @@ const Page = async ({ params }: RouteParams) => {
     if (!iso) return 'N/A';
     const date = new Date(iso);
     if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -102,7 +102,7 @@ const Page = async ({ params }: RouteParams) => {
                 <Sparkles className="size-3 text-success-100" />
                 <span className="text-xs font-semibold text-success-100">Interview Completed</span>
               </div>
-              
+
               <div className="space-y-2">
                 <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
                   Performance Report
@@ -110,14 +110,14 @@ const Page = async ({ params }: RouteParams) => {
                 <p className="text-sm text-light-400">Interview ID: <span className="text-light-300 font-mono">{feedback.interviewId}</span></p>
               </div>
             </div>
-            
+
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                 <Calendar className="size-4 text-primary-300" />
                 <span className="text-sm font-medium text-light-200">{formatDate(feedback.createdAt)}</span>
               </div>
-              
-              <Link 
+
+              <Link
                 href="/"
                 className="flex items-center gap-2 text-sm text-primary-300 hover:text-primary-200 transition-colors duration-300 font-semibold"
               >
@@ -133,7 +133,7 @@ const Page = async ({ params }: RouteParams) => {
       <section className="card-border animate-slideInLeft" style={{ animationDelay: '0.1s' }}>
         <div className="card !p-8 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary-500/5 to-transparent" />
-          
+
           <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
@@ -146,7 +146,7 @@ const Page = async ({ params }: RouteParams) => {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex-1 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -154,15 +154,15 @@ const Page = async ({ params }: RouteParams) => {
                   <h2 className="text-2xl font-bold text-light-100">Overall Performance</h2>
                 </div>
                 <p className="text-light-300">
-                  {feedback.totalScore >= 80 
+                  {feedback.totalScore >= 80
                     ? "Outstanding performance! You demonstrated excellent understanding and communication."
                     : feedback.totalScore >= 60
-                    ? "Good performance with room for improvement. Keep practicing to enhance your skills."
-                    : "There's significant room for growth. Focus on the areas highlighted below."
+                      ? "Good performance with room for improvement. Keep practicing to enhance your skills."
+                      : "There's significant room for growth. Focus on the areas highlighted below."
                   }
                 </p>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-light-400">Score Distribution</span>
@@ -171,7 +171,7 @@ const Page = async ({ params }: RouteParams) => {
                   </span>
                 </div>
                 <div className="w-full h-4 bg-dark-200 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className={`h-4 bg-gradient-to-r ${getScoreColor(feedback.totalScore)} transition-all duration-1000 ease-out rounded-full shadow-lg`}
                     style={{ width: `${feedback.totalScore}%` }}
                   />
@@ -188,11 +188,11 @@ const Page = async ({ params }: RouteParams) => {
           <Target className="size-6 text-primary-300" />
           Performance Breakdown
         </h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Array.isArray(feedback.categoryScoresArray) && feedback.categoryScoresArray.map((cat: CategoryItem, idx: number) => (
-            <div 
-              key={cat.name} 
+            <div
+              key={cat.name}
               className="card-border animate-fadeIn"
               style={{ animationDelay: `${0.3 + idx * 0.1}s` }}
             >
@@ -203,15 +203,15 @@ const Page = async ({ params }: RouteParams) => {
                     {cat.score}%
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="w-full h-2.5 bg-dark-200 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className={`h-2.5 bg-gradient-to-r ${getScoreColor(cat.score)} transition-all duration-1000 ease-out`}
                       style={{ width: `${cat.score}%` }}
                     />
                   </div>
-                  
+
                   <p className="text-sm text-light-300 leading-relaxed">{cat.comment}</p>
                 </div>
               </div>
@@ -230,7 +230,7 @@ const Page = async ({ params }: RouteParams) => {
               </div>
               <h3 className="text-xl font-bold text-light-100">Key Strengths</h3>
             </div>
-            
+
             <ul className="space-y-3">
               {Array.isArray(feedback.strengths) && feedback.strengths.map((s: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 animate-fadeIn" style={{ animationDelay: `${0.5 + i * 0.1}s` }}>
@@ -250,7 +250,7 @@ const Page = async ({ params }: RouteParams) => {
               </div>
               <h3 className="text-xl font-bold text-light-100">Areas for Improvement</h3>
             </div>
-            
+
             <ul className="space-y-3">
               {Array.isArray(feedback.areasForImprovement) && feedback.areasForImprovement.map((a: string, i: number) => (
                 <li key={i} className="flex items-start gap-3 animate-fadeIn" style={{ animationDelay: `${0.5 + i * 0.1}s` }}>
@@ -275,16 +275,16 @@ const Page = async ({ params }: RouteParams) => {
               <p className="text-light-200 leading-relaxed">{feedback.finalAssessment}</p>
             </div>
           </div>
-          
+
           <div className="pt-6 border-t border-primary-400/20 flex flex-col sm:flex-row gap-4">
-            <Link 
+            <Link
               href="/"
               className="btn-secondary flex-1 !justify-center"
             >
               <Home className="size-5" />
               <span>Return to Dashboard</span>
             </Link>
-            <Link 
+            <Link
               href="/interview"
               className="btn-primary flex-1 !justify-center"
             >

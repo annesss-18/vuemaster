@@ -40,31 +40,69 @@ export async function getInterviewsById(
     id: string,
     userId?: string
 ): Promise<Interview | null> {
+    // Try "old" interviews collection first (Legacy Support)
     const interviewDoc = await db
         .collection('interviews')
         .doc(id)
         .get();
 
-    // Check if document exists
-    if (!interviewDoc.exists) {
+    if (interviewDoc.exists) {
+        const interviewData = interviewDoc.data();
+        if (!interviewData) return null;
+        if (userId && interviewData.userId !== userId && !interviewData.finalized) {
+            return null;
+        }
+        return { ...interviewData, id: interviewDoc.id } as Interview;
+    }
+
+    // Attempt to fetch from new "interview_sessions"
+    return await getSessionById(id, userId);
+}
+
+export async function getSessionById(sessionId: string, userId?: string): Promise<Interview | null> {
+    const sessionDoc = await db.collection('interview_sessions').doc(sessionId).get();
+    if (!sessionDoc.exists) return null;
+
+    const sessionData = sessionDoc.data();
+    if (!sessionData) return null;
+
+    // Authorization
+    if (userId && sessionData.userId !== userId) return null;
+
+    // Fetch Template
+    const templateDoc = await db.collection('interview_templates').doc(sessionData.templateId).get();
+    if (!templateDoc.exists) {
+        // Fallback or error?
+        logger.error(`Template ${sessionData.templateId} not found for session ${sessionId}`);
         return null;
     }
+    const templateData = templateDoc.data();
 
-    const interviewData = interviewDoc.data();
-    if (!interviewData) {
-        return null;
-    }
-
-    // Authorization: User can access if they own it OR if it's finalized (public)
-    if (userId && interviewData.userId !== userId && !interviewData.finalized) {
-        return null; // Unauthorized access attempt
-    }
-
-    // Return complete interview object with ID
+    // specific casting or mapping to match Interview interface expected by UI
+    // We Map 'Template + Session' -> 'Interview' shape to minimize UI Refactor
     return {
-        ...interviewData,
-        id: interviewDoc.id
+        id: sessionId,
+        userId: sessionData.userId,
+        createdAt: sessionData.startedAt,
+        status: sessionData.status,
+        resumeText: sessionData.resumeText,
+
+        // From Template
+        role: templateData?.role || 'Unknown Role',
+        level: templateData?.level,
+        questions: templateData?.baseQuestions || templateData?.questions, // handle both namings
+        techstack: templateData?.techStack,
+        jobDescription: templateData?.jobDescription,
+        companyName: templateData?.companyName,
+        type: templateData?.type,
+        finalized: sessionData.status === 'completed',
     } as Interview;
+}
+
+export async function getTemplateById(templateId: string): Promise<InterviewTemplate | null> {
+    const doc = await db.collection('interview_templates').doc(templateId).get();
+    if (!doc.exists) return null;
+    return { ...doc.data(), id: doc.id } as InterviewTemplate;
 }
 
 export async function createFeedback(params: CreateFeedbackParams) {
