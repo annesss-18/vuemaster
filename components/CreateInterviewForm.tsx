@@ -167,9 +167,9 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
               <FileText className="size-6 text-primary-300" />
               Job Description Input
             </CardTitle>
-            <CardDescription className="text-light-300">
-              Choose how you'd like to provide the job description. Our AI will extract key requirements and generate relevant questions.
-            </CardDescription>
+          <CardDescription className="text-light-300">
+            Choose how you&apos;d like to provide the job description. Our AI will extract key requirements and generate relevant questions.
+          </CardDescription>
           </CardHeader>
 
           <CardContent>
@@ -183,17 +183,18 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                 </Label>
 
                 <div className="grid grid-cols-1 gap-3">
-                  {[
+                  { /* Use a typed array so we don't need any casts */ }
+                  {([
                     { value: 'technical', label: 'Technical Interview', desc: 'Coding, algorithms, and technical problem-solving' },
                     { value: 'behavioral', label: 'Behavioral Interview', desc: 'Past experiences, soft skills, and situational questions' },
                     { value: 'system-design', label: 'System Design Interview', desc: 'Architecture, scalability, and design decisions' },
                     { value: 'hr-cultural', label: 'HR/Cultural Fit', desc: 'Company values, team fit, and career goals' },
                     { value: 'mixed', label: 'Mixed Interview', desc: 'Combination of technical and behavioral questions' },
-                  ].map((type) => (
+                  ] as const).map((type) => (
                     <button
                       key={type.value}
                       type="button"
-                      onClick={() => setInterviewType(type.value as any)}
+                      onClick={() => setInterviewType(type.value)}
                       className={cn(
                         "p-4 rounded-xl text-left transition-all duration-300 border-2",
                         interviewType === type.value

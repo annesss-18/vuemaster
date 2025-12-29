@@ -75,7 +75,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
       let errorMessage = 'Authentication failed. Please try again.';
       
       if (error instanceof Error) {
-        const errorCode = (error as any).code;
+        const errorCode = (error as { code?: string }).code;
         
         // Handle specific Firebase error codes
         switch (errorCode) {

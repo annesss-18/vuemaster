@@ -114,7 +114,7 @@ const Page = async ({ params }: RouteParams) => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary-300 font-bold">•</span>
-                  <span>You'll receive detailed feedback immediately after completing the interview</span>
+                  <span>You&apos;ll receive detailed feedback immediately after completing the interview</span>
                 </li>
               </ul>
             </div>

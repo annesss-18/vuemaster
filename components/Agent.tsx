@@ -8,7 +8,7 @@ import { getGeminiLiveClient, type GeminiMessage } from '@/lib/gemini-live';
 import { createFeedback } from '@/lib/actions/general.action';
 import { logger } from '@/lib/logger';
 import { toast } from 'sonner';
-import { FileUp, Loader2, Mic, MicOff, PhoneCall, PhoneOff, Upload, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { FileUp, Loader2, Mic, PhoneCall, PhoneOff, Upload, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 enum CallStatus {
   ACTIVE = 'ACTIVE',

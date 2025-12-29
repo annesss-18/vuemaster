@@ -2,7 +2,6 @@ import * as cheerio from 'cheerio';
 import { URL } from 'url';
 
 const MAX_RESUME_SIZE_MB = 5;
-const MAX_JD_SIZE_MB = 10;
 const PDF_PARSE_TIMEOUT_MS = 30000; // 30 seconds
 const MAX_TEXT_LENGTH = 50000;
 
