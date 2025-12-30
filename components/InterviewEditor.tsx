@@ -1,18 +1,20 @@
+// components/InterviewEditor.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Plus, X, Save, ArrowRight } from 'lucide-react';
+import { Loader2, Plus, X, Save } from 'lucide-react';
 
 interface DraftData {
     role: string;
     companyName?: string;
     techStack: string[];
-    questions: string[];
+    baseQuestions: string[];  // Changed from questions
     jobDescription: string;
     level: string;
     type: string;
+    focusArea?: string[];
 }
 
 interface InterviewEditorProps {
@@ -30,18 +32,18 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
     };
 
     const handleQuestionChange = (index: number, val: string) => {
-        const newQuestions = [...draft.questions];
+        const newQuestions = [...draft.baseQuestions];
         newQuestions[index] = val;
-        handleUpdate('questions', newQuestions);
+        handleUpdate('baseQuestions', newQuestions);
     };
 
     const deleteQuestion = (index: number) => {
-        const newQuestions = draft.questions.filter((_, i) => i !== index);
-        handleUpdate('questions', newQuestions);
+        const newQuestions = draft.baseQuestions.filter((_, i) => i !== index);
+        handleUpdate('baseQuestions', newQuestions);
     };
 
     const addQuestion = () => {
-        handleUpdate('questions', [...draft.questions, "New Question"]);
+        handleUpdate('baseQuestions', [...draft.baseQuestions, "New Question"]);
     };
 
     const removeTech = (techToRemove: string) => {
@@ -59,14 +61,13 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
     };
 
     const handleSave = async () => {
-        if (!draft.role || draft.questions.length === 0) {
+        if (!draft.role || draft.baseQuestions.length === 0) {
             toast.error('Please ensure Role and Questions are filled.');
             return;
         }
 
         setIsSaving(true);
         try {
-            // 1. Create Template
             const res = await fetch('/api/interview/template/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -79,7 +80,6 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
             const { templateId } = data;
 
             toast.success('Interview Template Created!');
-            // Redirect to Template Landing Page
             router.push(`/interview/template/${templateId}`);
 
         } catch (error) {
@@ -103,7 +103,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
                         className="btn-primary"
                     >
                         {isSaving ? <Loader2 className="animate-spin size-4 mr-2" /> : <Save className="size-4 mr-2" />}
-                        Save & Start
+                        Save & Continue
                     </button>
                 </div>
 
@@ -156,7 +156,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
                         </button>
                     </div>
                     <div className="space-y-3">
-                        {draft.questions.map((q, idx) => (
+                        {draft.baseQuestions.map((q, idx) => (
                             <div key={idx} className="flex gap-2 items-start group">
                                 <span className="text-light-400 mt-3 text-sm font-mono">{idx + 1}.</span>
                                 <textarea

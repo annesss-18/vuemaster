@@ -1,3 +1,4 @@
+// components/InterviewCard.tsx
 import dayjs from 'dayjs';
 import Image from 'next/image';
 import React from 'react';
@@ -8,7 +9,7 @@ import DisplayTechIcons from './DisplayTechIcons';
 import { getFeedbackByInterviewId } from '@/lib/actions/general.action';
 import { Calendar, Star, ArrowRight, TrendingUp } from 'lucide-react';
 
-const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: InterviewCardProps) => {
+const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isSession }: InterviewCardProps & { isSession?: boolean }) => {
     const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
     const normalisedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format('MMM D, YYYY');
@@ -18,6 +19,15 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
             feedback.totalScore >= 80 ? 'text-success-100' :
                 feedback.totalScore >= 60 ? 'text-warning-200' :
                     'text-destructive-100';
+
+    // Determine the correct link based on whether it's a session or template
+    const linkHref = feedback 
+        ? `/interview/session/${id}/feedback` 
+        : isSession 
+            ? `/interview/session/${id}` 
+            : `/interview/template/${id}`;
+
+    const buttonText = feedback ? "View Feedback" : isSession ? "Continue Interview" : "Start Interview";
 
     return (
         <div className="card-border w-[380px] max-sm:w-full min-h-[450px] animate-fadeIn">
@@ -90,8 +100,8 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt }: I
                     </div>
 
                     <Button className="btn-primary group !px-6 !py-3.5 !min-h-[48px]">
-                        <Link href={feedback ? `/interview/${id}/feedback` : `/interview/${id}`} className="flex items-center gap-3">
-                            <span>{feedback ? "View Feedback" : "Start Interview"}</span>
+                        <Link href={linkHref} className="flex items-center gap-3">
+                            <span>{buttonText}</span>
                             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
                         </Link>
                     </Button>

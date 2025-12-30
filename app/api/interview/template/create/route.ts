@@ -1,21 +1,28 @@
+// app/api/interview/template/create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
 
-
 export const POST = withAuth(async (req: NextRequest, user: any) => {
     try {
-        const body = await req.json(); // Validated Draft Data
+        const body = await req.json();
 
-        // Basic validation
-        if (!body.role || !body.questions || !Array.isArray(body.questions)) {
-            return NextResponse.json({ error: 'Invalid template data' }, { status: 400 });
+        // Validate required fields
+        if (!body.role || !body.baseQuestions || !Array.isArray(body.baseQuestions)) {
+            return NextResponse.json({ error: 'Invalid template data: role and baseQuestions required' }, { status: 400 });
         }
 
         const templateData: Omit<InterviewTemplate, 'id'> = {
-            ...body,
+            role: body.role,
+            companyName: body.companyName,
+            level: body.level || 'Mid',
+            type: body.type || 'Technical',
+            techStack: body.techStack || [],
+            focusArea: body.focusArea || [],
+            jobDescription: body.jobDescription || '',
+            baseQuestions: body.baseQuestions,
             creatorId: user.id,
-            isPublic: true, // Default to true or ask user
+            isPublic: true,
             usageCount: 0,
             avgScore: 0,
             createdAt: new Date().toISOString(),

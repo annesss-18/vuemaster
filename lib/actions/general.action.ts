@@ -5,7 +5,6 @@ import { db } from "@/firebase/admin";
 import { generateObject } from "ai";
 import { logger } from "../logger";
 
-
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
     try {
         // Fetch all sessions for user
@@ -19,7 +18,7 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
             return [];
         }
 
-        // Fetch all referenced templates in parallel
+        // Fetch all referenced templates
         const templateIds = new Set<string>();
         sessionsSnapshot.docs.forEach(doc => {
             const templateId = doc.data().templateId;
@@ -32,7 +31,6 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
 
         const templateDocs = await Promise.all(templatePromises);
 
-        // Build template map for fast lookup
         const templateMap = new Map<string, FirebaseFirestore.DocumentData>();
         templateDocs.forEach(doc => {
             if (doc.exists) {
@@ -40,34 +38,35 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
             }
         });
 
-        // Map sessions to Interview view model
-        const interviews: Interview[] = sessionsSnapshot.docs.map(sessionDoc => {
+        const interviews: Interview[] = [];
+        
+        for (const sessionDoc of sessionsSnapshot.docs) {
             const sessionData = sessionDoc.data();
             const templateData = templateMap.get(sessionData.templateId);
-
-            return {
-                id: sessionDoc.id,
-                userId: sessionData.userId,
-                createdAt: sessionData.startedAt,
-                status: sessionData.status,
-                resumeText: sessionData.resumeText,
-
-                // From template (with fallbacks)
-                role: templateData?.role || 'Unknown Role',
-                level: templateData?.level || 'Mid',
-                questions: templateData?.baseQuestions || templateData?.questions || [],
-                techstack: templateData?.techStack || [],
-                jobDescription: templateData?.jobDescription || '',
-                companyName: templateData?.companyName,
-                type: templateData?.type || 'Mixed',
-                finalized: sessionData.status === 'completed',
-            } as Interview;
-        });
+            
+            if (templateData) {
+                interviews.push({
+                    id: sessionDoc.id,
+                    userId: sessionData.userId,
+                    createdAt: sessionData.startedAt,
+                    status: sessionData.status,
+                    resumeText: sessionData.resumeText,
+                    role: templateData.role,
+                    level: templateData.level,
+                    questions: templateData.baseQuestions || [],
+                    techstack: templateData.techStack || [],
+                    jobDescription: templateData.jobDescription || '',
+                    companyName: templateData.companyName,
+                    type: templateData.type,
+                    finalized: sessionData.status === 'completed',
+                } as Interview);
+            }
+        }
 
         return interviews;
 
     } catch (error) {
-        logger.error('Error fetching interviews for user:', userId, error);
+        logger.error('Error fetching user sessions:', error);
         return null;
     }
 }
@@ -76,12 +75,10 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
     const { userId, limit = 20 } = params;
 
     try {
-        // Find public templates (exclude user's own)
+        // Fetch all public templates (include user's own)
         const templatesSnapshot = await db
             .collection('interview_templates')
             .where('isPublic', '==', true)
-            .where('creatorId', '!=', userId)
-            .orderBy('creatorId') // Required for != query
             .orderBy('createdAt', 'desc')
             .limit(limit)
             .get();
@@ -90,32 +87,28 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
             return [];
         }
 
-        // Map templates to Interview view model
-        // Note: These are templates, not sessions, so some fields will be empty
         const interviews: Interview[] = templatesSnapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 id: doc.id,
                 userId: data.creatorId,
                 createdAt: data.createdAt,
-                status: 'setup', // Not a session yet
-
-                // From template
+                status: 'setup',
                 role: data.role,
                 level: data.level,
-                questions: data.baseQuestions || data.questions,
-                techstack: data.techStack,
+                questions: data.baseQuestions || [],
+                techstack: data.techStack || [],
                 jobDescription: data.jobDescription,
                 companyName: data.companyName,
                 type: data.type,
-                finalized: true, // Public templates are "finalized"
+                finalized: true,
             } as Interview;
         });
 
         return interviews;
 
     } catch (error) {
-        logger.error('Error fetching latest interviews:', error);
+        logger.error('Error fetching templates:', error);
         return null;
     }
 }
@@ -133,7 +126,6 @@ export async function getSessionById(
     userId?: string
 ): Promise<Interview | null> {
     try {
-        // Fetch session
         const sessionDoc = await db.collection('interview_sessions').doc(sessionId).get();
 
         if (!sessionDoc.exists) {
@@ -144,13 +136,11 @@ export async function getSessionById(
         const sessionData = sessionDoc.data();
         if (!sessionData) return null;
 
-        // Authorization check
         if (userId && sessionData.userId !== userId) {
             logger.warn(`Unauthorized access attempt to session ${sessionId} by user ${userId}`);
             return null;
         }
 
-        // Fetch template (with error handling)
         const templateDoc = await db
             .collection('interview_templates')
             .doc(sessionData.templateId)
@@ -158,26 +148,11 @@ export async function getSessionById(
 
         if (!templateDoc.exists) {
             logger.error(`Template ${sessionData.templateId} not found for session ${sessionId}`);
-            // Don't fail completely - return partial data
-            return {
-                id: sessionId,
-                userId: sessionData.userId,
-                createdAt: sessionData.startedAt,
-                status: sessionData.status,
-                resumeText: sessionData.resumeText,
-
-                // Fallback values
-                role: 'unknown',
-                level: 'mid',
-                questions: [],
-                techstack: [],
-                jobDescription: 'template data unavailable',
-                type: 'mixed',
-                finalized: sessionData.status === 'completed',
-            } as Interview;
+            return null; // Return null instead of partial data
         }
 
         const templateData = templateDoc.data();
+        if (!templateData) return null;
 
         // Map template + session → Interview view model
         return {
@@ -187,14 +162,14 @@ export async function getSessionById(
             status: sessionData.status,
             resumeText: sessionData.resumeText,
 
-            // From template
-            role: templateData?.role || 'unknown',
-            level: templateData?.level || 'mid',
-            questions: templateData?.baseQuestions || templateData?.questions || [],
-            techstack: templateData?.techStack || [],
-            jobDescription: templateData?.jobDescription || '',
-            companyName: templateData?.companyName,
-            type: templateData?.type || 'mixed',
+            // From template - use baseQuestions
+            role: templateData.role,
+            level: templateData.level,
+            questions: templateData.baseQuestions || [], // Use baseQuestions
+            techstack: templateData.techStack || [],
+            jobDescription: templateData.jobDescription || '',
+            companyName: templateData.companyName,
+            type: templateData.type,
             finalized: sessionData.status === 'completed',
         } as Interview;
 

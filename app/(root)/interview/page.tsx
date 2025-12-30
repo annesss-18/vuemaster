@@ -1,54 +1,64 @@
+// app/(root)/interview/page.tsx
 import React from 'react'
-
+import Link from 'next/link'
+import Image from 'next/image'
+import InterviewCard from '@/components/InterviewCard'
 import { getCurrentUser } from '@/lib/actions/auth.action'
-import { redirect } from 'next/navigation'
+import { getInterviewsByUserId, getLatestInterviews } from '@/lib/actions/general.action'
+import { Sparkles, Target, Plus } from 'lucide-react'
+import InterviewTabs from '@/components/InterviewTabs'
 
-const InterviewPage = async () => {
+const Page = async () => {
   const user = await getCurrentUser();
-
+  
   if (!user) {
-    redirect('/sign-in')
+    return null;
   }
 
+  const [userSessions, allTemplates] = await Promise.all([
+    getInterviewsByUserId(user.id),
+    getLatestInterviews({ userId: user.id })
+  ]);
+
   return (
-    <div className="w-full min-h-[calc(100vh-200px)] py-10">
-      <div className="mb-8 text-center space-y-3">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">
-          Interview Dashboard
-        </h1>
-        <p className="text-light-300 text-base md:text-lg max-w-2xl mx-auto">
-          Manage your interview sessions and templates
-        </p>
-      </div>
-
-      <div className="max-w-4xl mx-auto grid gap-6 md:grid-cols-2">
-        {/* Create New Card */}
+    <div className="container-app">
+      {/* Hero Section */}
+      <section className="mb-12 animate-fadeIn">
         <div className="card-border">
-          <div className="card !p-8 flex flex-col items-center justify-center text-center space-y-4 hover:bg-white/5 transition-colors">
-            <div className="size-16 rounded-full bg-primary-500/20 flex items-center justify-center mb-2">
-              <span className="text-3xl text-primary-300">+</span>
+          <div className="card !p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="flex-1 space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-500/20 border border-primary-400/30 backdrop-blur-md w-fit">
+                  <Sparkles className="size-4 text-primary-300 animate-pulse" />
+                  <span className="text-sm font-semibold text-primary-200">Interview Dashboard</span>
+                </div>
+
+                <h1 className="text-3xl md:text-4xl font-bold text-white">
+                  Welcome back, <span className="bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">{user.name}</span>
+                </h1>
+
+                <p className="text-lg text-light-300 max-w-2xl">
+                  Manage your interview sessions and explore new interview templates
+                </p>
+              </div>
+
+              <Link href="/interview/create" className="btn-primary text-lg px-8 py-4 group">
+                <Plus className="size-6" />
+                <span className="font-bold">Create Interview</span>
+              </Link>
             </div>
-            <h2 className="text-xl font-bold text-light-100">Start New Interview</h2>
-            <p className="text-light-300">Create a new custom interview session tailored to your job description.</p>
-            <a href="/interview/create" className="btn-primary w-full mt-4">Create New</a>
           </div>
         </div>
+      </section>
 
-        {/* Placeholder for Recent Sessions */}
-        <div className="card-border">
-          <div className="card !p-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="size-16 rounded-full bg-accent-300/20 flex items-center justify-center mb-2">
-              <span className="text-3xl text-accent-300">H</span>
-            </div>
-            <h2 className="text-xl font-bold text-light-100">History (Coming Soon)</h2>
-            <p className="text-light-300">View your past interview sessions and performance feedback.</p>
-            <button className="btn-secondary w-full mt-4" disabled>View History</button>
-          </div>
-        </div>
-      </div>
+      {/* Tabs Section */}
+      <InterviewTabs 
+        userSessions={userSessions || []}
+        allTemplates={allTemplates || []}
+        userId={user.id}
+      />
     </div>
   )
 }
 
-
-export default InterviewPage
+export default Page;

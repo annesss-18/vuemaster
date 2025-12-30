@@ -51,19 +51,24 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
         throw new Error('File is not a valid PDF. Please upload a genuine PDF file.');
       }
 
-      // Dynamic import with timeout for PDF parsing
-      const pdfModule = await import('pdf-parse') as { default?: (buf: Buffer) => Promise<{ text?: string }>; parse?: (buf: Buffer) => Promise<{ text?: string }> };
-      const pdfFn = pdfModule.default ?? pdfModule.parse;
+      try {
+        // Import PDFParse class
+        const { PDFParse } = await import('pdf-parse');
 
-      if (typeof pdfFn === 'function') {
-        // Add timeout to prevent hanging on corrupted PDFs
-        const parsePromise = pdfFn(buffer);
+        // Create parser instance with timeout
+        const parsePromise = (async () => {
+          const parser = new PDFParse({ data: buffer });
+          const result = await parser.parse();
+          await parser.destroy();
+          return result;
+        })();
+
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('PDF parsing timeout. The file may be corrupted.')), PDF_PARSE_TIMEOUT_MS)
         );
 
         const data = await Promise.race([parsePromise, timeoutPromise]);
-        const text = data?.text ?? '';
+        const text = data?.text?.toString() ?? '';
 
         // Limit text length
         if (text.length > MAX_TEXT_LENGTH) {
@@ -75,8 +80,13 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
         }
 
         return text;
+      } catch (error) {
+        // If it's already a custom error, re-throw it
+        if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('PDF') || error.message.includes('empty'))) {
+          throw error;
+        }
+        throw new Error('PDF parser not available. Please try again.');
       }
-      throw new Error('PDF parser not available. Please try again.');
     }
 
     // Handle text files

@@ -60,6 +60,7 @@ interface User {
   id: string;
 }
 
+// types/index.d.ts (Add to existing file)
 interface InterviewCardProps {
   id?: string;
   userId?: string;
@@ -67,6 +68,7 @@ interface InterviewCardProps {
   type: string;
   techstack: string[];
   createdAt?: string;
+  isSession?: boolean;
 }
 
 interface AgentProps {
