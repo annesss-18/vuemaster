@@ -14,7 +14,6 @@ const DisplayTechIcons = ({ techStack }: TechIconProps) => {
                         index >= 1 && "-ml-2"
                     )}
                 >
-                    <span className="tech-tooltip">{tech}</span>
                     <Image src={url} alt={tech} width={50} height={50} className='size-6' unoptimized />
                 </div>
             ))}

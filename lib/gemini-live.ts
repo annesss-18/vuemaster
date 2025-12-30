@@ -1,4 +1,4 @@
-// lib/gemini-live.ts - Native WebSocket Implementation for Browser
+// lib/gemini-live.ts - Enhanced WebSocket Implementation with Reconnection
 import { logger } from '@/lib/logger';
 
 export type GeminiLiveConfig = {
@@ -13,13 +13,31 @@ export type GeminiMessage = {
   timestamp: number;
 };
 
+export type ConnectionState =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'failed';
+
 export class GeminiLiveClient {
   private ws: WebSocket | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioContext: AudioContext | null = null;
   private audioQueue: AudioBuffer[] = [];
   private isPlaying = false;
-  private isConnected = false;
+  private connectionState: ConnectionState = 'disconnected';
+
+  // Reconnection logic
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectTimeoutId: NodeJS.Timeout | null = null;
+  private lastConfig: GeminiLiveConfig | null = null;
+  private shouldReconnect = false;
+  private manualDisconnect = false;
+
+  // Keep track of messages during reconnection
+  private pendingMessages: string[] = [];
 
   private callbacks: {
     onTranscript?: (message: GeminiMessage) => void;
@@ -29,12 +47,16 @@ export class GeminiLiveClient {
     onCallEnd?: () => void;
     onError?: (error: Error) => void;
     onToolCall?: (toolCall: unknown) => void;
+    onConnectionStateChange?: (state: ConnectionState) => void;
+    onReconnecting?: (attempt: number, maxAttempts: number) => void;
   } = {};
 
   constructor(private apiKey: string) { }
 
-  on<K extends keyof GeminiLiveClient['callbacks']>(event: K, callback: NonNullable<GeminiLiveClient['callbacks'][K]>) {
-    // Assign using unknown intermediary to avoid explicit any
+  on<K extends keyof GeminiLiveClient['callbacks']>(
+    event: K,
+    callback: NonNullable<GeminiLiveClient['callbacks'][K]>
+  ) {
     (this.callbacks as Record<string, unknown>)[String(event)] = callback as unknown;
   }
 
@@ -42,86 +64,165 @@ export class GeminiLiveClient {
     delete this.callbacks[event];
   }
 
+  private setConnectionState(state: ConnectionState) {
+    if (this.connectionState !== state) {
+      this.connectionState = state;
+      this.callbacks.onConnectionStateChange?.(state);
+      logger.info(`🔌 Connection state: ${state}`);
+    }
+  }
+
   async start(config: GeminiLiveConfig) {
     try {
-      // Initialize audio context
-      this.audioContext = new AudioContext({ sampleRate: 24000 });
+      // Store config for reconnection
+      this.lastConfig = config;
+      this.shouldReconnect = true;
+      this.manualDisconnect = false;
+      this.reconnectAttempts = 0;
 
-      // Connect to Gemini WebSocket - v1beta is the correct version
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
-
-      this.ws = new WebSocket(wsUrl);
-
-      // Set binary type to handle audio data properly
-      this.ws.binaryType = 'blob'; // Can also be 'arraybuffer'
-
-      this.ws.onopen = () => {
-        logger.info('✅ WebSocket connected');
-        this.isConnected = true;
-
-        // Send setup message
-        this.sendSetup(config);
-
-        // Start audio capture after setup
-        setTimeout(() => {
-          this.startAudioCapture();
-        }, 500);
-
-        this.callbacks.onCallStart?.();
-      };
-
-      this.ws.onmessage = async (event) => {
-        try {
-          logger.info('📨 Raw message type:', typeof event.data);
-          logger.info('📨 Is Blob?', event.data instanceof Blob);
-          logger.info('📨 Is ArrayBuffer?', event.data instanceof ArrayBuffer);
-
-          // Handle binary data (audio)
-          if (event.data instanceof Blob) {
-            logger.info('📦 Received binary data (Blob):', (event.data as Blob).size, 'bytes');
-            await this.handleBinaryMessage(event.data);
-            return;
-          }
-
-          // Handle ArrayBuffer
-          if (event.data instanceof ArrayBuffer) {
-            logger.info('📦 Received ArrayBuffer:', (event.data as ArrayBuffer).byteLength, 'bytes');
-            const blob = new Blob([event.data]);
-            await this.handleBinaryMessage(blob);
-            return;
-          }
-
-          // Handle text data (JSON)
-          if (typeof event.data === 'string') {
-            logger.info('📝 Received text message, length:', (event.data as string).length);
-            logger.info('📝 First 100 chars:', (event.data as string).substring(0, 100));
-            const response = JSON.parse(event.data);
-            this.handleServerMessage(response);
-            return;
-          }
-
-          logger.warn('⚠️ Unknown message type:', typeof event.data, event.data);
-        } catch (error) {
-          logger.error('❌ Error handling message:', error);
-          logger.error('❌ Message data:', event.data);
-        }
-      };
-
-      this.ws.onerror = (error) => {
-        logger.error('❌ WebSocket error:', error);
-        this.callbacks.onError?.(new Error('WebSocket connection failed'));
-      };
-
-      this.ws.onclose = (event) => {
-        logger.info('🔌 WebSocket closed:', event.code, event.reason);
-        this.isConnected = false;
-        this.callbacks.onCallEnd?.();
-      };
-
+      await this.connect(config);
     } catch (error) {
       logger.error('Failed to start:', error);
       this.callbacks.onError?.(error as Error);
+      this.setConnectionState('failed');
     }
+  }
+
+  private async connect(config: GeminiLiveConfig) {
+    this.setConnectionState('connecting');
+
+    try {
+      // Initialize audio context
+      if (!this.audioContext) {
+        this.audioContext = new AudioContext({ sampleRate: 24000 });
+      }
+
+      // Connect to Gemini WebSocket
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${this.apiKey}`;
+
+      this.ws = new WebSocket(wsUrl);
+      this.ws.binaryType = 'blob';
+
+      // Setup WebSocket event handlers
+      this.setupWebSocketHandlers();
+
+    } catch (error) {
+      logger.error('Connection failed:', error);
+      throw error;
+    }
+  }
+
+  private setupWebSocketHandlers() {
+    if (!this.ws) return;
+
+    this.ws.onopen = () => {
+      logger.info('✅ WebSocket connected');
+      this.setConnectionState('connected');
+      this.reconnectAttempts = 0; // Reset on successful connection
+
+      // Send setup message
+      if (this.lastConfig) {
+        this.sendSetup(this.lastConfig);
+      }
+
+      // Start audio capture after setup
+      setTimeout(() => {
+        this.startAudioCapture();
+      }, 500);
+
+      // Resend any pending messages
+      if (this.pendingMessages.length > 0) {
+        logger.info(`📤 Resending ${this.pendingMessages.length} pending messages`);
+        this.pendingMessages.forEach(msg => this.ws?.send(msg));
+        this.pendingMessages = [];
+      }
+
+      this.callbacks.onCallStart?.();
+    };
+
+    this.ws.onmessage = async (event) => {
+      try {
+        // Handle binary data (audio)
+        if (event.data instanceof Blob) {
+          await this.handleBinaryMessage(event.data);
+          return;
+        }
+
+        // Handle ArrayBuffer
+        if (event.data instanceof ArrayBuffer) {
+          const blob = new Blob([event.data]);
+          await this.handleBinaryMessage(blob);
+          return;
+        }
+
+        // Handle text data (JSON)
+        if (typeof event.data === 'string') {
+          const response = JSON.parse(event.data);
+          this.handleServerMessage(response);
+          return;
+        }
+
+        logger.warn('⚠️ Unknown message type:', typeof event.data);
+      } catch (error) {
+        logger.error('❌ Error handling message:', error);
+      }
+    };
+
+    this.ws.onerror = (error) => {
+      logger.error('❌ WebSocket error:', error);
+      this.callbacks.onError?.(new Error('WebSocket connection failed'));
+    };
+
+    this.ws.onclose = (event) => {
+      logger.info('🔌 WebSocket closed:', event.code, event.reason);
+
+      // Clean up audio
+      this.stopAudioCapture();
+
+      // Attempt reconnection if not manually disconnected
+      if (this.shouldReconnect && !this.manualDisconnect) {
+        this.attemptReconnect();
+      } else {
+        this.setConnectionState('disconnected');
+        this.callbacks.onCallEnd?.();
+      }
+    };
+  }
+
+  private async attemptReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.error('❌ Max reconnection attempts reached');
+      this.setConnectionState('failed');
+      this.callbacks.onError?.(
+        new Error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts`)
+      );
+      this.callbacks.onCallEnd?.();
+      return;
+    }
+
+    this.reconnectAttempts++;
+    this.setConnectionState('reconnecting');
+
+    // Notify UI of reconnection attempt
+    this.callbacks.onReconnecting?.(this.reconnectAttempts, this.maxReconnectAttempts);
+
+    // Calculate exponential backoff delay
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
+
+    logger.info(
+      `🔄 Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+    );
+
+    this.reconnectTimeoutId = setTimeout(async () => {
+      if (this.lastConfig && this.shouldReconnect) {
+        try {
+          await this.connect(this.lastConfig);
+        } catch (error) {
+          logger.error('Reconnection failed:', error);
+          this.attemptReconnect(); // Try again
+        }
+      }
+    }, delay);
   }
 
   private sendSetup(config: GeminiLiveConfig) {
@@ -141,32 +242,31 @@ export class GeminiLiveClient {
               }
             }
           }
-        }
-        , tools:
-          [
-            {
-              function_declarations: [
-                {
-                  name: "create_interview",
-                  description: "Creates a new interview when all information (role, level, tech stack) is gathered.",
-                  parameters: {
-                    type: "OBJECT",
-                    properties: {
-                      role: { type: "STRING" },
-                      level: { type: "STRING" },
-                      techstack: { type: "STRING" },
-                      amount: { type: "NUMBER" }
-                    },
-                    required: ["role", "level"]
-                  }
+        },
+        tools: [
+          {
+            function_declarations: [
+              {
+                name: "create_interview",
+                description: "Creates a new interview when all information is gathered.",
+                parameters: {
+                  type: "OBJECT",
+                  properties: {
+                    role: { type: "STRING" },
+                    level: { type: "STRING" },
+                    techstack: { type: "STRING" },
+                    amount: { type: "NUMBER" }
+                  },
+                  required: ["role", "level"]
                 }
-              ]
-            }
-          ]
+              }
+            ]
+          }
+        ]
       }
     };
 
-    // Add system instruction if provided
+    // Add system instruction
     if (config.systemInstruction) {
       const setupRecord = setupMessage.setup as Record<string, unknown>;
       setupRecord['system_instruction'] = {
@@ -174,20 +274,26 @@ export class GeminiLiveClient {
       };
     }
 
-    logger.info('📤 Sending setup:', JSON.stringify(setupMessage, null, 2));
+    logger.info('📤 Sending setup');
     this.ws.send(JSON.stringify(setupMessage));
   }
 
   private async startAudioCapture() {
+    // Don't start if already recording or if reconnecting
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      logger.info('🎙️ Audio capture already active');
+      return;
+    }
+
     try {
       logger.info('🎤 Requesting microphone access...');
 
-      // Check if mediaDevices is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Your browser does not support microphone access. Please use a modern browser like Chrome, Firefox, or Edge.');
+        throw new Error(
+          'Your browser does not support microphone access. Please use Chrome, Firefox, or Edge.'
+        );
       }
 
-      // Request microphone permission with detailed constraints
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -199,70 +305,58 @@ export class GeminiLiveClient {
       });
 
       logger.info('✅ Microphone access granted');
-      logger.info('📊 Audio tracks:', stream.getAudioTracks().length);
 
-      // Verify we have audio tracks
       if (stream.getAudioTracks().length === 0) {
-        throw new Error('No microphone input detected. Please ensure your microphone is connected and enabled.');
+        throw new Error('No microphone input detected.');
       }
 
-      // Create MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm';
 
-      logger.info('🎙️ Using MIME type:', mimeType);
-
       this.mediaRecorder = new MediaRecorder(stream, { mimeType });
 
       this.mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size > 0 && this.isConnected) {
+        if (event.data.size > 0 && this.connectionState === 'connected') {
           await this.sendAudioChunk(event.data);
+        } else if (event.data.size > 0 && this.connectionState === 'reconnecting') {
+          // Queue audio during reconnection (optional)
+          logger.info('📦 Queuing audio chunk during reconnection');
         }
       };
 
       this.mediaRecorder.onerror = (event) => {
         logger.error('❌ MediaRecorder error:', event);
-        this.callbacks.onError?.(new Error('Microphone recording failed. Please check your microphone settings.'));
+        this.callbacks.onError?.(new Error('Microphone recording failed.'));
       };
 
-      this.mediaRecorder.onstart = () => {
-        logger.info('🎙️  MediaRecorder started successfully');
-      };
-
-      this.mediaRecorder.onstop = () => {
-        logger.info('🛑 MediaRecorder stopped');
-      };
-
-      // Start recording in 250ms chunks
-      this.mediaRecorder.start(250);
-      logger.info('🎙️ Recording started successfully');
+      this.mediaRecorder.start(250); // 250ms chunks
+      logger.info('🎙️ Recording started');
 
     } catch (error) {
       logger.error('❌ Microphone access failed:', error);
 
-      // Provide specific error messages based on the error type
       let errorMessage = 'Microphone access failed.';
 
       if (error instanceof DOMException) {
         switch (error.name) {
           case 'NotAllowedError':
           case 'PermissionDeniedError':
-            errorMessage = 'Microphone access denied. Please enable microphone permissions in your browser settings and try again.';
+            errorMessage = 'Microphone access denied. Please enable permissions in browser settings.';
             break;
           case 'NotFoundError':
           case 'DevicesNotFoundError':
-            errorMessage = 'No microphone found. Please connect a microphone and try again.';
+            errorMessage = 'No microphone found. Please connect a microphone.';
             break;
           case 'NotReadableError':
           case 'TrackStartError':
-            errorMessage = 'Microphone is already in use by another application. Please close other applications using the microphone.';
+            errorMessage = 'Microphone already in use. Close other applications using it.';
             break;
           case 'OverconstrainedError':
-            errorMessage = 'Microphone does not meet the required specifications. Please try a different microphone.';
+            errorMessage = 'Microphone does not meet requirements.';
             break;
           case 'SecurityError':
-            errorMessage = 'Microphone access blocked due to security restrictions. Please ensure you\'re using HTTPS.';
+            errorMessage = 'Microphone blocked due to security restrictions. Use HTTPS.';
             break;
           default:
             errorMessage = `Microphone error: ${error.message}`;
@@ -275,6 +369,14 @@ export class GeminiLiveClient {
     }
   }
 
+  private stopAudioCapture() {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      logger.info('🛑 Audio capture stopped');
+    }
+  }
+
   private async sendAudioChunk(blob: Blob) {
     try {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -282,7 +384,6 @@ export class GeminiLiveClient {
         return;
       }
 
-      // Convert blob to base64
       const base64Audio = await this.blobToBase64(blob);
 
       if (!base64Audio || typeof base64Audio !== 'string') {
@@ -301,7 +402,6 @@ export class GeminiLiveClient {
 
       const messageStr = JSON.stringify(message);
       this.ws.send(messageStr);
-      logger.info('📤 Sent audio chunk:', blob.size, 'bytes, base64 length:', base64Audio.length);
 
     } catch (error) {
       logger.error('❌ Error sending audio:', error);
@@ -310,13 +410,10 @@ export class GeminiLiveClient {
 
   private async handleBinaryMessage(blob: Blob) {
     try {
-      // Binary messages might be audio data
-      // For now, log and skip (audio should come in JSON inlineData)
       logger.info('🔊 Binary audio data received, size:', blob.size);
 
-      // If you want to handle raw binary audio:
       const arrayBuffer = await blob.arrayBuffer();
-      // Try to decode as audio
+
       if (this.audioContext) {
         try {
           const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
@@ -344,15 +441,13 @@ export class GeminiLiveClient {
     error?: { message?: string } | string;
     [key: string]: unknown;
   }) {
-    logger.info('📥 Received:', JSON.stringify(response, null, 2));
-
     // Handle setup complete
     if (response.setupComplete) {
       logger.info('✅ Setup complete');
       return;
     }
 
-    // Handle server content (model's response)
+    // Handle server content
     if (response.serverContent) {
       const modelTurn = response.serverContent.modelTurn;
 
@@ -369,23 +464,18 @@ export class GeminiLiveClient {
           }
 
           // Handle audio response
-          if (part.inlineData && typeof part.inlineData.data === 'string' && typeof part.inlineData.mimeType === 'string') {
-            console.log('🔊 Received audio data');
+          if (part.inlineData?.data && part.inlineData?.mimeType) {
             this.playAudio(part.inlineData.data, part.inlineData.mimeType);
           }
         }
       }
 
-      // Check if turn is complete
       if (response.serverContent.turnComplete) {
         logger.info('✅ Turn complete');
       }
     }
 
-    // Add to callbacks interface
-
-
-    // Inside handleServerMessage
+    // Handle tool calls
     if (response.toolCall) {
       this.callbacks.onToolCall?.(response.toolCall);
     }
@@ -393,7 +483,9 @@ export class GeminiLiveClient {
     // Handle errors
     if (response.error) {
       logger.error('❌ Server error:', response.error);
-      const errMsg = typeof response.error === 'string' ? response.error : (response.error as { message?: string })?.message ?? 'Server error';
+      const errMsg = typeof response.error === 'string'
+        ? response.error
+        : response.error.message ?? 'Server error';
       this.callbacks.onError?.(new Error(errMsg));
     }
   }
@@ -411,11 +503,10 @@ export class GeminiLiveClient {
         bytes[i] = binaryString.charCodeAt(i);
       }
 
-      // Parse mime type to determine format
       let audioBuffer: ArrayBuffer = bytes.buffer;
 
-      // If it's PCM, convert to WAV
-      if (mimeType && mimeType.includes('pcm')) {
+      // Convert PCM to WAV if needed
+      if (mimeType?.includes('pcm')) {
         const format = this.parsePCMFormat(mimeType);
         audioBuffer = this.convertPCMToWav(bytes.buffer, format);
       }
@@ -424,7 +515,6 @@ export class GeminiLiveClient {
       const decodedAudio = await this.audioContext.decodeAudioData(audioBuffer);
       this.audioQueue.push(decodedAudio);
 
-      // Start playback if not already playing
       if (!this.isPlaying) {
         this.playNextInQueue();
       }
@@ -456,11 +546,9 @@ export class GeminiLiveClient {
     };
 
     source.start();
-    logger.info('▶️ Playing audio chunk');
   }
 
   private parsePCMFormat(mimeType: string) {
-    // Example: "audio/pcm;rate=24000"
     const params = mimeType.split(';');
     let sampleRate = 24000;
     const bitsPerSample = 16;
@@ -536,12 +624,18 @@ export class GeminiLiveClient {
   stop() {
     logger.info('🛑 Stopping session...');
 
-    // Stop recording
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-      this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      this.mediaRecorder = null;
+    // Mark as manual disconnect to prevent reconnection
+    this.manualDisconnect = true;
+    this.shouldReconnect = false;
+
+    // Clear reconnection timeout
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
     }
+
+    // Stop recording
+    this.stopAudioCapture();
 
     // Close WebSocket
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -559,7 +653,7 @@ export class GeminiLiveClient {
       this.audioContext = null;
     }
 
-    this.isConnected = false;
+    this.setConnectionState('disconnected');
     this.callbacks.onCallEnd?.();
   }
 
@@ -579,6 +673,11 @@ export class GeminiLiveClient {
     };
 
     this.ws.send(JSON.stringify(message));
+  }
+
+  // Expose connection state for UI
+  getConnectionState(): ConnectionState {
+    return this.connectionState;
   }
 }
 
