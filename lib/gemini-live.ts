@@ -414,16 +414,24 @@ export class GeminiLiveClient {
 
       const arrayBuffer = await blob.arrayBuffer();
 
-      if (this.audioContext) {
+      if (this.audioContext && arrayBuffer.byteLength > 0) {
         try {
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          // The binary data is likely raw PCM, convert to WAV first
+          const wavBuffer = this.convertPCMToWav(arrayBuffer, {
+            sampleRate: 24000,
+            numChannels: 1,
+            bitsPerSample: 16
+          });
+
+          const audioBuffer = await this.audioContext.decodeAudioData(wavBuffer);
           this.audioQueue.push(audioBuffer);
 
           if (!this.isPlaying) {
             this.playNextInQueue();
           }
         } catch (decodeError) {
-          logger.warn('⚠️ Could not decode binary audio:', decodeError);
+          // Silently ignore decode errors for binary chunks - they may be control messages
+          logger.debug('⚠️ Could not decode binary audio (may be control data):', decodeError);
         }
       }
     } catch (error) {

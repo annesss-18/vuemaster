@@ -4,6 +4,7 @@ import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { generateObject } from "ai";
 import { logger } from "../logger";
+import { Query } from 'firebase-admin/firestore';
 
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
     try {
@@ -39,11 +40,11 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
         });
 
         const interviews: Interview[] = [];
-        
+
         for (const sessionDoc of sessionsSnapshot.docs) {
             const sessionData = sessionDoc.data();
             const templateData = templateMap.get(sessionData.templateId);
-            
+
             if (templateData) {
                 interviews.push({
                     id: sessionDoc.id,
@@ -71,11 +72,10 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
     }
 }
 
-export async function getLatestInterviews(params: GetLatestInterviewsParams): Promise<Interview[] | null> {
-    const { userId, limit = 20 } = params;
+export async function getLatestInterviews(params: GetLatestInterviewsParams): Promise<InterviewTemplate[] | null> {
+    const { limit = 20 } = params; // userId param is not strictly needed for public fetch
 
     try {
-        // Fetch all public templates (include user's own)
         const templatesSnapshot = await db
             .collection('interview_templates')
             .where('isPublic', '==', true)
@@ -87,28 +87,14 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
             return [];
         }
 
-        const interviews: Interview[] = templatesSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                userId: data.creatorId,
-                createdAt: data.createdAt,
-                status: 'setup',
-                role: data.role,
-                level: data.level,
-                questions: data.baseQuestions || [],
-                techstack: data.techStack || [],
-                jobDescription: data.jobDescription,
-                companyName: data.companyName,
-                type: data.type,
-                finalized: true,
-            } as Interview;
-        });
-
-        return interviews;
+        // Return raw templates, not mapped "Interview" objects, for better type safety in the UI
+        return templatesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as InterviewTemplate[];
 
     } catch (error) {
-        logger.error('Error fetching templates:', error);
+        logger.error('Error fetching public templates:', error);
         return null;
     }
 }
@@ -195,7 +181,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
             )).join('');
 
         const genResult = await generateObject({
-            model: google('gemini-2.0-flash-001'),
+            model: google('gemini-2.5-flash-image'),
             schema: feedbackSchema,
             prompt: `
         You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
@@ -292,4 +278,27 @@ export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdP
         id: feedbackDoc.id
     } as Feedback;
 
-}       
+}
+
+export async function getUserTemplates(userId: string): Promise<InterviewTemplate[] | null> {
+    try {
+        const templatesSnapshot = await db
+            .collection('interview_templates')
+            .where('creatorId', '==', userId)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (templatesSnapshot.empty) {
+            return [];
+        }
+
+        return templatesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        })) as InterviewTemplate[];
+
+    } catch (error) {
+        logger.error('Error fetching user templates:', error);
+        return null;
+    }
+}

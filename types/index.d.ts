@@ -45,6 +45,7 @@ interface Interview {
   location?: string;
   experienceYears?: string;
   status?: string;
+  focusArea?: string[];
 }
 
 interface CreateFeedbackParams {
@@ -123,24 +124,22 @@ interface TechIconProps {
 
 interface InterviewTemplate {
   id: string;
-  creatorId: string;        // ID of the user who generated this
-  isPublic: boolean;        // If true, appears in "Explore" section
-
-  // Metadata (Searchable)
+  creatorId: string;
+  isPublic: boolean;        // NEW: Determines visibility in "Explore"
+  
   role: string;
-  companyName?: string;     // Extracted from JD
+  companyName?: string;
   level: 'Junior' | 'Mid' | 'Senior' | 'Staff' | 'Executive';
   type: 'Screening' | 'Technical' | 'System Design' | 'Behavioral' | 'Case Study' | 'HR' | 'Mixed';
+  
   techStack: string[];
-  focusArea?: string[];     // e.g. ["Database Design", "React Hooks"]
-
-  // Content
+  focusArea: string[];      // NEW: The "Competencies" identified by AI (e.g. "Scalability")
+  
   jobDescription: string;
-  baseQuestions: string[];  // The "Gold Standard" questions for this role
-
-  // Metrics
-  usageCount: number;       // Incremented when a session is created
-  avgScore: number;         // Rolling average of feedback scores
+  baseQuestions: string[];  // Hidden from user during creation, used by Agent
+  
+  usageCount: number;
+  avgScore: number;
   createdAt: string;
 }
 

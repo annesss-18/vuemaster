@@ -8,16 +8,18 @@ import { extractTextFromUrl, extractTextFromFile } from '@/lib/server-utils';
 
 export const runtime = 'nodejs';
 
+// Enhanced Schema with Focus Areas
 const draftSchema = z.object({
-    role: z.string(),
+    role: z.string().describe("The specific job title, inferred or explicit (e.g. 'Senior Backend Engineer')."),
     companyName: z.string().optional(),
-    techStack: z.array(z.string()),
-    questions: z.array(z.string()).min(5),
+    techStack: z.array(z.string()).describe("List of core technologies extracted from the JD."),
+    baseQuestions: z.array(z.string()).min(3).describe("5-10 challenging, role-specific questions testing the focus areas."),
     jobDescription: z.string(),
     level: z.enum(['Junior', 'Mid', 'Senior', 'Staff', 'Executive']),
-    type: z.enum(['Screening', 'Technical', 'System Design', 'Behavioral', 'Case Study', 'HR', 'Mixed']),
-    focusArea: z.array(z.string()).optional(),
-    systemInstruction: z.string().describe("The prompt to feed the AI Agent later")
+    type: z.enum(['Technical', 'Behavioral', 'System Design', 'HR', 'Mixed']),
+    // NEW: Analytical Fields
+    focusArea: z.array(z.string()).describe("3-5 key competencies/topics to evaluate (e.g. 'Memory Management', 'System Scalability', 'Event Loops')."),
+    systemInstruction: z.string().describe("A highly detailed persona and instruction set for the AI Interviewer agent.")
 });
 
 export const POST = withAuth(async (req: NextRequest, user: any) => {
@@ -25,11 +27,13 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
         const formData = await req.formData();
         const jdType = formData.get('jdType') as string;
         const jdInput = formData.get('jdInput');
+
+        // Handle "UNKNOWN" or empty role input
         const roleInput = formData.get('role') as string;
         const levelInput = formData.get('level') as string || 'Mid';
         const typeInput = formData.get('type') as string || 'Technical';
-        const techStackInput = formData.get('techStack') as string;
 
+        // 1. Robust Extraction
         let jdText = "";
         try {
             if (jdType === 'url' && typeof jdInput === 'string') {
@@ -41,60 +45,69 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
             }
         } catch (err) {
             console.error('JD processing error', err);
+            // Don't fail, just continue with what we have
         }
 
-        if (!jdText && !roleInput) {
-            return NextResponse.json({ error: 'Job Description or Role is required' }, { status: 400 });
-        }
+        // 2. Safe Fallback Context construction
+        // If Role is missing, mark it as UNKNOWN for the AI to fix.
+        const safeRoleContext = roleInput && roleInput.trim().length > 0
+            ? `Target Role: ${roleInput}`
+            : `Target Role: UNKNOWN (You MUST extract the role from the JD)`;
 
-        // Parse tech stack if provided
-        const techStackArray = techStackInput 
-            ? techStackInput.split(',').map(t => t.trim()).filter(Boolean)
-            : [];
+        const safeJdText = jdText ? jdText.substring(0, 20000) : "No Job Description provided. Infer standard requirements for the role.";
 
+        // 3. Deep Research Prompt
         const constructedPrompt = `
-Analyze the following Job Description (JD) and/or Role context.
+        You are an Expert Technical Recruiter and Engineering Manager. 
+        Perform a deep research analysis on the following Job Description (JD) to build a rigorous interview template.
 
-ROLE: ${roleInput || 'Infer from JD'}
-LEVEL: ${levelInput}
-TYPE: ${typeInput}
-${techStackArray.length > 0 ? `TECH STACK: ${techStackArray.join(', ')}` : 'TECH STACK: Infer from JD'}
+        INPUT CONTEXT:
+        ${safeRoleContext}
+        Level: ${levelInput}
+        Type: ${typeInput}
 
-[JOB DESCRIPTION START]
-${jdText ? jdText.substring(0, 15000) : 'No specific JD provided, rely on role.'} 
-[JOB DESCRIPTION END]
+        [JOB DESCRIPTION START]
+        ${safeJdText}
+        [JOB DESCRIPTION END]
 
-Task:
-1. Extract/Refine the Role, Company Name, and key Tech Stack (as an array of strings)
-2. Generate 5-10 high-quality interview questions for a ${typeInput} interview
-3. Identify 2-4 focus areas (e.g., "React Hooks", "Database Design")
-4. Create a "System Instruction" for an AI interviewer agent
+        Your Goal: Create the most efficient and rigorous interview template possible.
+        
+        CRITICAL INSTRUCTIONS:
+        1. **Role Extraction:** If the "Target Role" is UNKNOWN, you MUST extract the exact job title from the JD. If the JD is vague, infer the most likely technical role (e.g. "Full Stack Developer").
+        2. **Tech Stack Extraction:** Identify critical tools. Extract specific frameworks (e.g., "Next.js" instead of just "JS").
+        3. **Competency Mapping (Focus Areas):** Identify 3-5 "Focus Areas". For a Senior role, focus on Architecture/Scalability. For a Junior, focus on Syntax/Logic.
+        4. **Question Generation:** Generate 5-10 questions that probe these Focus Areas. *Do not make them generic.*
+        5. **Agent Persona:** Write a "System Instruction" for the AI Agent that will conduct the interview. Include specific behaviors (e.g., "Ask about their experience with X").
 
-Ensure techStack is returned as an array of technology names.
-    `.trim();
+        Output the result as a structured JSON object matching the schema.
+        `.trim();
 
         const result = await generateObject({
-            model: google('gemini-2.0-flash-exp'),
+            model: google('gemini-2.5-flash-image'),
             schema: draftSchema,
             prompt: constructedPrompt,
         });
 
-        const responseData = {
-            ...result.object,
-            jobDescription: jdText || `Interview for ${result.object.role}`,
-            // Rename questions to baseQuestions for template compatibility
-            baseQuestions: result.object.questions,
-        };
-
-        // Remove the old questions field to avoid confusion
-        delete (responseData as any).questions;
-
-        return NextResponse.json(responseData);
+        // Ensure we return the object directly
+        return NextResponse.json(result.object);
 
     } catch (error) {
         console.error("Draft Generation Error:", error);
+
+        // Fallback response to prevent crash in case AI fails
         return NextResponse.json({
-            error: error instanceof Error ? error.message : 'Internal Server Error'
-        }, { status: 500 });
+            role: (formData.get('role') as string) || "Software Engineer",
+            techStack: ["General"],
+            baseQuestions: [
+                "Tell me about your most challenging technical project.",
+                "How do you handle difficult debugging scenarios?",
+                "What is your preferred tech stack and why?"
+            ],
+            jobDescription: "Auto-generated fallback due to error.",
+            level: "Mid",
+            type: "Technical",
+            focusArea: ["General Competence", "Problem Solving"],
+            systemInstruction: "You are a helpful and professional technical interviewer."
+        });
     }
 });

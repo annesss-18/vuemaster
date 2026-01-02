@@ -8,8 +8,8 @@ import { Library, History, Target } from 'lucide-react'
 import Link from 'next/link'
 
 interface InterviewTabsProps {
-  userSessions: Interview[]
-  allTemplates: Interview[]
+  userSessions: any[] // Changed to any[] or use an extended type that includes 'feedback'
+  allTemplates: any[]
   userId: string
 }
 
@@ -62,27 +62,25 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     userId={userId}
                     role={template.role}
                     type={template.type}
-                    techstack={template.techstack}
+                    techstack={template.techstack} // Note: Ensure this prop name matches (techstack vs techStack)
                     createdAt={template.createdAt}
                     isSession={false}
+                    feedback={null} // Templates have no feedback
                   />
                 </div>
               ))}
             </div>
           ) : (
             <div className="card-border">
+              {/* Empty state ... */}
               <div className="card !p-12 text-center space-y-6">
-                <div className="size-24 rounded-full bg-primary-500/10 border-2 border-primary-400/30 flex items-center justify-center mx-auto">
-                  <Library className="size-12 text-primary-300" />
-                </div>
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold text-light-100">No Templates Yet</h3>
                   <p className="text-light-300 max-w-md mx-auto">
-                    Be the first to create an interview template and share it with the community!
+                    Be the first to create an interview template!
                   </p>
                 </div>
                 <Link href="/interview/create" className="btn-primary inline-flex items-center gap-2">
-                  <Target className="size-5" />
                   <span>Create First Template</span>
                 </Link>
               </div>
@@ -119,24 +117,22 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     techstack={session.techstack}
                     createdAt={session.createdAt}
                     isSession={true}
+                    feedback={session.feedback} // PASS FEEDBACK HERE
                   />
                 </div>
               ))}
             </div>
           ) : (
             <div className="card-border">
+              {/* Empty state ... */}
               <div className="card !p-12 text-center space-y-6">
-                <div className="size-24 rounded-full bg-accent-300/10 border-2 border-accent-300/30 flex items-center justify-center mx-auto">
-                  <History className="size-12 text-accent-300" />
-                </div>
                 <div className="space-y-2">
                   <h3 className="text-2xl font-bold text-light-100">No Sessions Yet</h3>
                   <p className="text-light-300 max-w-md mx-auto">
-                    Start your first interview session to practice and receive AI-powered feedback!
+                    Start your first interview session to practice!
                   </p>
                 </div>
                 <Link href="/interview/create" className="btn-primary inline-flex items-center gap-2">
-                  <Target className="size-5" />
                   <span>Start First Session</span>
                 </Link>
               </div>

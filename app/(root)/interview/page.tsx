@@ -1,16 +1,14 @@
 // app/(root)/interview/page.tsx
 import React from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
-import InterviewCard from '@/components/InterviewCard'
 import { getCurrentUser } from '@/lib/actions/auth.action'
-import { getInterviewsByUserId, getLatestInterviews } from '@/lib/actions/general.action'
-import { Sparkles, Target, Plus } from 'lucide-react'
+import { getInterviewsByUserId, getLatestInterviews, getFeedbackByInterviewId } from '@/lib/actions/general.action'
+import { Sparkles, Plus } from 'lucide-react'
 import InterviewTabs from '@/components/InterviewTabs'
 
 const Page = async () => {
   const user = await getCurrentUser();
-  
+
   if (!user) {
     return null;
   }
@@ -20,9 +18,17 @@ const Page = async () => {
     getLatestInterviews({ userId: user.id })
   ]);
 
+  // NEW: Fetch feedback for each session
+  // This is required because InterviewCard is no longer async
+  const sessionsWithFeedback = await Promise.all(
+    (userSessions || []).map(async (session) => {
+      const feedback = await getFeedbackByInterviewId({ interviewId: session.id, userId: user.id });
+      return { ...session, feedback };
+    })
+  );
+
   return (
     <div className="container-app">
-      {/* Hero Section */}
       <section className="mb-12 animate-fadeIn">
         <div className="card-border">
           <div className="card !p-8">
@@ -51,9 +57,9 @@ const Page = async () => {
         </div>
       </section>
 
-      {/* Tabs Section */}
-      <InterviewTabs 
-        userSessions={userSessions || []}
+      {/* Pass the enriched sessions list */}
+      <InterviewTabs
+        userSessions={sessionsWithFeedback}
         allTemplates={allTemplates || []}
         userId={user.id}
       />

@@ -34,7 +34,7 @@ export default function Navigation() {
         <div className="card rounded-2xl p-4 backdrop-blur-xl bg-dark-50/95">
           <div className="flex items-center justify-between">
             {/* Logo Section */}
-            <Link href="/" className="flex items-center gap-3 group">
+            <Link href="/dashboard" className="flex items-center gap-3 group">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative size-12 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
@@ -61,7 +61,13 @@ export default function Navigation() {
             {/* Navigation Items */}
             <div className="flex items-center gap-3">
               <Link
-                href="/interview"
+                href="/explore"
+                className="text-sm font-medium text-light-300 hover:text-primary-300 transition-colors px-4"
+              >
+                Explore
+              </Link>
+              <Link
+                href="/create"
                 className="hidden sm:flex items-center gap-3 px-6 py-3 min-h-[48px] rounded-full bg-primary-500/10 border border-primary-400/30 hover:bg-primary-500/20 hover:border-primary-400/50 transition-all duration-300 group"
               >
                 <Sparkles className="size-4 text-primary-300 group-hover:scale-110 transition-transform duration-300" />

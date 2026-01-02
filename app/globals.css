@@ -11,7 +11,7 @@
 
 @theme {
   /* ===== COLOR SYSTEM ===== */
-  
+
   /* Primary - Purple Gradient */
   --color-primary-50: #f0f3ff;
   --color-primary-100: #e0e7ff;
@@ -110,21 +110,32 @@
   --color-dark-900: #a8afd9;
 
   /* ===== TYPOGRAPHY ===== */
-  
+
   --font-family-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --font-size-xs: 0.75rem;      /* 12px */
-  --font-size-sm: 0.875rem;     /* 14px */
-  --font-size-base: 1rem;       /* 16px */
-  --font-size-lg: 1.125rem;     /* 18px */
-  --font-size-xl: 1.25rem;      /* 20px */
-  --font-size-2xl: 1.5rem;      /* 24px */
-  --font-size-3xl: 1.875rem;    /* 30px */
-  --font-size-4xl: 2.25rem;     /* 36px */
-  --font-size-5xl: 3rem;        /* 48px */
-  --font-size-6xl: 3.75rem;     /* 60px */
-  --font-size-7xl: 4.5rem;      /* 72px */
+  --font-size-xs: 0.75rem;
+  /* 12px */
+  --font-size-sm: 0.875rem;
+  /* 14px */
+  --font-size-base: 1rem;
+  /* 16px */
+  --font-size-lg: 1.125rem;
+  /* 18px */
+  --font-size-xl: 1.25rem;
+  /* 20px */
+  --font-size-2xl: 1.5rem;
+  /* 24px */
+  --font-size-3xl: 1.875rem;
+  /* 30px */
+  --font-size-4xl: 2.25rem;
+  /* 36px */
+  --font-size-5xl: 3rem;
+  /* 48px */
+  --font-size-6xl: 3.75rem;
+  /* 60px */
+  --font-size-7xl: 4.5rem;
+  /* 72px */
 
   --line-height-tight: 1.25;
   --line-height-snug: 1.375;
@@ -133,56 +144,100 @@
   --line-height-loose: 2;
 
   /* ===== SPACING ===== */
-  
+
   --spacing-px: 1px;
   --spacing-0: 0;
-  --spacing-0\.5: 0.125rem;     /* 2px */
-  --spacing-1: 0.25rem;         /* 4px */
-  --spacing-1\.5: 0.375rem;     /* 6px */
-  --spacing-2: 0.5rem;          /* 8px */
-  --spacing-2\.5: 0.625rem;     /* 10px */
-  --spacing-3: 0.75rem;         /* 12px */
-  --spacing-3\.5: 0.875rem;     /* 14px */
-  --spacing-4: 1rem;            /* 16px */
-  --spacing-5: 1.25rem;         /* 20px */
-  --spacing-6: 1.5rem;          /* 24px */
-  --spacing-7: 1.75rem;         /* 28px */
-  --spacing-8: 2rem;            /* 32px */
-  --spacing-9: 2.25rem;         /* 36px */
-  --spacing-10: 2.5rem;         /* 40px */
-  --spacing-11: 2.75rem;        /* 44px */
-  --spacing-12: 3rem;           /* 48px */
-  --spacing-14: 3.5rem;         /* 56px */
-  --spacing-16: 4rem;           /* 64px */
-  --spacing-20: 5rem;           /* 80px */
-  --spacing-24: 6rem;           /* 96px */
-  --spacing-28: 7rem;           /* 112px */
-  --spacing-32: 8rem;           /* 128px */
-  --spacing-36: 9rem;           /* 144px */
-  --spacing-40: 10rem;          /* 160px */
-  --spacing-44: 11rem;          /* 176px */
-  --spacing-48: 12rem;          /* 192px */
-  --spacing-52: 13rem;          /* 208px */
-  --spacing-56: 14rem;          /* 224px */
-  --spacing-60: 15rem;          /* 240px */
-  --spacing-64: 16rem;          /* 256px */
-  --spacing-72: 18rem;          /* 288px */
-  --spacing-80: 20rem;          /* 320px */
-  --spacing-96: 24rem;          /* 384px */
+  --spacing-0\.5: 0.125rem;
+  /* 2px */
+  --spacing-1: 0.25rem;
+  /* 4px */
+  --spacing-1\.5: 0.375rem;
+  /* 6px */
+  --spacing-2: 0.5rem;
+  /* 8px */
+  --spacing-2\.5: 0.625rem;
+  /* 10px */
+  --spacing-3: 0.75rem;
+  /* 12px */
+  --spacing-3\.5: 0.875rem;
+  /* 14px */
+  --spacing-4: 1rem;
+  /* 16px */
+  --spacing-5: 1.25rem;
+  /* 20px */
+  --spacing-6: 1.5rem;
+  /* 24px */
+  --spacing-7: 1.75rem;
+  /* 28px */
+  --spacing-8: 2rem;
+  /* 32px */
+  --spacing-9: 2.25rem;
+  /* 36px */
+  --spacing-10: 2.5rem;
+  /* 40px */
+  --spacing-11: 2.75rem;
+  /* 44px */
+  --spacing-12: 3rem;
+  /* 48px */
+  --spacing-14: 3.5rem;
+  /* 56px */
+  --spacing-16: 4rem;
+  /* 64px */
+  --spacing-20: 5rem;
+  /* 80px */
+  --spacing-24: 6rem;
+  /* 96px */
+  --spacing-28: 7rem;
+  /* 112px */
+  --spacing-32: 8rem;
+  /* 128px */
+  --spacing-36: 9rem;
+  /* 144px */
+  --spacing-40: 10rem;
+  /* 160px */
+  --spacing-44: 11rem;
+  /* 176px */
+  --spacing-48: 12rem;
+  /* 192px */
+  --spacing-52: 13rem;
+  /* 208px */
+  --spacing-56: 14rem;
+  /* 224px */
+  --spacing-60: 15rem;
+  /* 240px */
+  --spacing-64: 16rem;
+  /* 256px */
+  --spacing-72: 18rem;
+  /* 288px */
+  --spacing-80: 20rem;
+  /* 320px */
+  --spacing-96: 24rem;
+  /* 384px */
 
   /* ===== MAX WIDTHS ===== */
-  
-  --max-width-xs: 20rem;        /* 320px */
-  --max-width-sm: 24rem;        /* 384px */
-  --max-width-md: 28rem;        /* 448px */
-  --max-width-lg: 32rem;        /* 512px */
-  --max-width-xl: 36rem;        /* 576px */
-  --max-width-2xl: 42rem;       /* 672px */
-  --max-width-3xl: 48rem;       /* 768px */
-  --max-width-4xl: 56rem;       /* 896px */
-  --max-width-5xl: 64rem;       /* 1024px */
-  --max-width-6xl: 72rem;       /* 1152px */
-  --max-width-7xl: 80rem;       /* 1280px */
+
+  --max-width-xs: 20rem;
+  /* 320px */
+  --max-width-sm: 24rem;
+  /* 384px */
+  --max-width-md: 28rem;
+  /* 448px */
+  --max-width-lg: 32rem;
+  /* 512px */
+  --max-width-xl: 36rem;
+  /* 576px */
+  --max-width-2xl: 42rem;
+  /* 672px */
+  --max-width-3xl: 48rem;
+  /* 768px */
+  --max-width-4xl: 56rem;
+  /* 896px */
+  --max-width-5xl: 64rem;
+  /* 1024px */
+  --max-width-6xl: 72rem;
+  /* 1152px */
+  --max-width-7xl: 80rem;
+  /* 1280px */
   --max-width-full: 100%;
   --max-width-min: min-content;
   --max-width-max: max-content;
@@ -195,18 +250,24 @@
   --max-width-screen-2xl: 1536px;
 
   /* ===== BORDER RADIUS ===== */
-  
+
   --radius-none: 0;
-  --radius-sm: 0.375rem;        /* 6px */
-  --radius-md: 0.5rem;          /* 8px */
-  --radius-lg: 0.75rem;         /* 12px */
-  --radius-xl: 1rem;            /* 16px */
-  --radius-2xl: 1.5rem;         /* 24px */
-  --radius-3xl: 2rem;           /* 32px */
+  --radius-sm: 0.375rem;
+  /* 6px */
+  --radius-md: 0.5rem;
+  /* 8px */
+  --radius-lg: 0.75rem;
+  /* 12px */
+  --radius-xl: 1rem;
+  /* 16px */
+  --radius-2xl: 1.5rem;
+  /* 24px */
+  --radius-3xl: 2rem;
+  /* 32px */
   --radius-full: 9999px;
 
   /* ===== SHADOWS ===== */
-  
+
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-DEFAULT: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
@@ -215,14 +276,14 @@
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
   --shadow-none: 0 0 #0000;
-  
+
   /* Custom Shadows */
   --shadow-glow: 0 0 20px rgba(124, 92, 252, 0.4);
   --shadow-glow-success: 0 0 20px rgba(85, 239, 196, 0.4);
   --shadow-glow-accent: 0 0 20px rgba(225, 112, 85, 0.4);
 
   /* ===== Z-INDEX ===== */
-  
+
   --z-index-0: 0;
   --z-index-10: 10;
   --z-index-20: 20;
@@ -232,7 +293,7 @@
   --z-index-auto: auto;
 
   /* ===== TRANSITIONS ===== */
-  
+
   --transition-none: 0s;
   --transition-all: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-DEFAULT: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -242,7 +303,7 @@
   --transition-transform: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ===== ANIMATION DURATIONS ===== */
-  
+
   --duration-75: 75ms;
   --duration-100: 100ms;
   --duration-150: 150ms;
@@ -341,7 +402,19 @@
   }
 
   /* Typography - Apply text wrapping only to text elements */
-  p, span, label, a, li, td, th, h1, h2, h3, h4, h5, h6 {
+  p,
+  span,
+  label,
+  a,
+  li,
+  td,
+  th,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: normal;
@@ -351,7 +424,12 @@
     @apply text-light-200 leading-relaxed;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply text-light-100 font-bold;
   }
 
@@ -390,7 +468,9 @@
   }
 
   /* Input Elements */
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     @apply transition-colors duration-200;
   }
 
@@ -411,7 +491,7 @@
 
 @layer components {
   /* ===== CARDS ===== */
-  
+
   .card {
     @apply relative overflow-hidden rounded-2xl bg-gradient-to-br from-dark-200 to-dark-100 p-6 shadow-lg border border-primary-400/10 backdrop-blur-sm;
     transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -430,7 +510,8 @@
 
   .card-border::before {
     content: '';
-    @apply absolute inset-0 rounded-2xl;
+    @apply absolute inset-0 rounded-2xl pointer-events-none;
+    /* Added pointer-events-none */
     background: linear-gradient(135deg, rgba(124, 92, 252, 0.1) 0%, rgba(225, 112, 85, 0.1) 100%);
     opacity: 0;
     transition: opacity 300ms ease;
@@ -456,7 +537,7 @@
   }
 
   /* ===== BUTTONS ===== */
-  
+
   .btn-primary {
     @apply inline-flex items-center gap-3 px-6 py-3 min-h-[48px] rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold shadow-md hover:shadow-glow transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
   }
@@ -478,13 +559,13 @@
   }
 
   /* ===== BADGES ===== */
-  
+
   .badge-text {
     @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-500/20 border border-primary-400/30 text-xs font-bold text-primary-200 backdrop-blur-md;
   }
 
   /* ===== TEXT GRADIENTS ===== */
-  
+
   .text-gradient-primary {
     @apply bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent;
   }
@@ -494,13 +575,13 @@
   }
 
   /* ===== DIVIDERS ===== */
-  
+
   .divider {
     @apply h-px w-full bg-gradient-to-r from-transparent via-primary-400/30 to-transparent;
   }
 
   /* ===== CONTAINERS ===== */
-  
+
   .container-app {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
@@ -519,6 +600,7 @@
    ============================================ */
 
 @layer utilities {
+
   /* Glassmorphism */
   .glass {
     @apply bg-dark-200/60 backdrop-blur-xl border border-primary-400/10;
@@ -585,6 +667,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -596,6 +679,7 @@
     opacity: 0;
     transform: translateX(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -607,6 +691,7 @@
     opacity: 0;
     transform: translateX(20px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -614,18 +699,24 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.8;
   }
 }
 
 @keyframes gradientShift {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -638,10 +729,13 @@
 }
 
 @keyframes bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(-25%);
     animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
   }
+
   50% {
     transform: translateY(0);
     animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
@@ -711,6 +805,7 @@
 
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -760,7 +855,8 @@
     content: " (" attr(href) ")";
   }
 
-  h2, h3 {
+  h2,
+  h3 {
     page-break-after: avoid;
   }
 

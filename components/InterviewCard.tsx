@@ -6,25 +6,43 @@ import { getRandomInterviewCover } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from './ui/button';
 import DisplayTechIcons from './DisplayTechIcons';
-import { getFeedbackByInterviewId } from '@/lib/actions/general.action';
 import { Calendar, Star, ArrowRight, TrendingUp } from 'lucide-react';
 
-const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isSession }: InterviewCardProps & { isSession?: boolean }) => {
-    const feedback = userId && id ? await getFeedbackByInterviewId({ interviewId: id, userId }) : null;
+// Define Interface for Feedback if not imported
+interface FeedbackData {
+    createdAt?: string | Date;
+    totalScore: number;
+    finalAssessment?: string;
+}
+
+interface InterviewCardProps {
+    id: string;
+    userId: string;
+    role: string;
+    type: string;
+    techstack: string[];
+    createdAt: Date;
+    isSession?: boolean;
+    feedback?: FeedbackData | null; // NEW PROP
+}
+
+const InterviewCard = ({ id, role, type, techstack, createdAt, isSession, feedback }: InterviewCardProps) => {
+    // Removed async data fetching from here. Data is now passed via props.
+
     const normalisedType = /mix/gi.test(type) ? "Mixed" : type;
     const formattedDate = dayjs(feedback?.createdAt || createdAt || Date.now()).format('MMM D, YYYY');
     const hasScore = feedback?.totalScore !== undefined;
+
     const scoreColor =
         !hasScore ? 'text-light-400' :
-            feedback.totalScore >= 80 ? 'text-success-100' :
-                feedback.totalScore >= 60 ? 'text-warning-200' :
+            feedback!.totalScore >= 80 ? 'text-success-100' :
+                feedback!.totalScore >= 60 ? 'text-warning-200' :
                     'text-destructive-100';
 
-    // Determine the correct link based on whether it's a session or template
-    const linkHref = feedback 
-        ? `/interview/session/${id}/feedback` 
-        : isSession 
-            ? `/interview/session/${id}` 
+    const linkHref = feedback
+        ? `/interview/session/${id}/feedback`
+        : isSession
+            ? `/interview/session/${id}`
             : `/interview/template/${id}`;
 
     const buttonText = feedback ? "View Feedback" : isSession ? "Continue Interview" : "Start Interview";
@@ -32,14 +50,12 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isS
     return (
         <div className="card-border w-[380px] max-sm:w-full min-h-[450px] animate-fadeIn">
             <div className="card-interview">
-                {/* Badge positioned absolutely */}
                 <div className="absolute top-0 right-0 w-fit">
                     <div className="badge-text !rounded-tl-none !rounded-br-3xl backdrop-blur-md">
                         {normalisedType}
                     </div>
                 </div>
 
-                {/* Header Section */}
                 <div className="relative z-10 space-y-4">
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-accent-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -58,7 +74,6 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isS
                             {role} Interview
                         </h3>
 
-                        {/* Metadata Row */}
                         <div className="flex flex-row items-center gap-4 text-sm">
                             <div className="flex items-center gap-3 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm">
                                 <Calendar className="size-4 text-primary-300" />
@@ -66,7 +81,7 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isS
                             </div>
 
                             <div className={`flex items-center gap-3 px-3 py-1.5 rounded-full bg-dark-200/60 border border-primary-400/20 backdrop-blur-sm ${scoreColor}`}>
-                                {hasScore ? (
+                                {hasScore && feedback ? (
                                     <>
                                         <Star className="size-4 fill-current" />
                                         <span className="font-bold">{feedback.totalScore}</span>
@@ -83,7 +98,6 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isS
                     </div>
                 </div>
 
-                {/* Description */}
                 <div className="relative z-10 flex-1">
                     <p className="line-clamp-3 text-light-200 leading-relaxed">
                         {feedback
@@ -93,7 +107,6 @@ const InterviewCard = async ({ id, userId, role, type, techstack, createdAt, isS
                     </p>
                 </div>
 
-                {/* Footer with Tech Stack and CTA */}
                 <div className="relative z-10 flex flex-row justify-between items-center pt-4 border-t border-primary-400/10">
                     <div className="flex-1">
                         <DisplayTechIcons techStack={techstack} />
