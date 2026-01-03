@@ -95,8 +95,9 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
         console.error("Draft Generation Error:", error);
 
         // Fallback response to prevent crash in case AI fails
+        const fallbackFormData = await req.formData();
         return NextResponse.json({
-            role: (formData.get('role') as string) || "Software Engineer",
+            role: (fallbackFormData.get('role') as string) || "Software Engineer",
             techStack: ["General"],
             baseQuestions: [
                 "Tell me about your most challenging technical project.",

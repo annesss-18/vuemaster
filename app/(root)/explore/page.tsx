@@ -1,13 +1,14 @@
+// app/(root)/explore/page.tsx
 import React from 'react'
 import { getCurrentUser } from '@/lib/actions/auth.action'
-import { getLatestInterviews } from '@/lib/actions/general.action'
-import InterviewCard from '@/components/InterviewCard'
+import { getPublicTemplates } from '@/lib/actions/general.action'
+import TemplateCard from '@/components/TemplateCard'
 import { Globe, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 const Explore = async () => {
   const user = await getCurrentUser();
-  const publicTemplates = await getLatestInterviews({ limit: 50 });
+  const publicTemplates = await getPublicTemplates(50);
 
   return (
     <div className="container-app py-10 space-y-8">
@@ -19,7 +20,7 @@ const Explore = async () => {
         </div>
         <h1 className="text-4xl font-bold text-white">Explore Interview Templates</h1>
         <p className="text-light-300">
-          Discover high-quality interview templates created by the community. 
+          Discover high-quality interview templates created by the community.
           Select one to start your private practice session.
         </p>
       </div>
@@ -27,26 +28,28 @@ const Explore = async () => {
       {/* Search (Visual only for now) */}
       <div className="relative max-w-md mx-auto mb-10">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-light-400 size-5" />
-        <Input 
-          placeholder="Search by role or tech stack..." 
+        <Input
+          placeholder="Search by role or tech stack..."
           className="pl-12 h-12 bg-dark-200/50 border-primary-400/20 rounded-full"
         />
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slideInUp">
-        {publicTemplates?.map((template) => (
-          <InterviewCard 
-            key={template.id} 
-            id={template.id}
-            role={template.role}
-            techstack={template.techStack}
-            createdAt={template.createdAt}
-            type="template" // Explicitly mark as template
-            isSession={false}
-          />
-        ))}
-      </div>
+      {publicTemplates.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slideInUp">
+          {publicTemplates.map((template) => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              showActions={false} // Public templates, no edit/delete
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center p-12 border border-dashed border-light-400/20 rounded-2xl">
+          <p className="text-light-300">No public templates available yet. Be the first to share one!</p>
+        </div>
+      )}
     </div>
   )
 }

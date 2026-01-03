@@ -1,6 +1,8 @@
+// components/DisplayTechIcons.tsx
 import React from 'react'
 import { cn, getTechLogos } from '@/lib/utils';
 import Image from 'next/image';
+import type { TechIconProps } from '@/types';
 
 const DisplayTechIcons = ({ techStack }: TechIconProps) => {
     const techIcons = getTechLogos(techStack || []);

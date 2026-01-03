@@ -1,3 +1,4 @@
+// components/CreateInterviewForm.tsx
 "use client"
 
 import React, { useState } from 'react'
@@ -9,10 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { validateAndSanitizeURL } from '@/lib/validation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import Image from 'next/image'
+import { getCompanyLogoOrDefault } from '@/lib/company-utils'
 
 interface CreateInterviewFormProps {
   userId: string
@@ -41,7 +44,8 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
   // Config State
   const [role, setRole] = useState('')
-  const [companyName, setCompanyName] = useState('') // Company Name State
+  const [companyName, setCompanyName] = useState('')
+  const [companyLogoUrl, setCompanyLogoUrl] = useState('') // ✅ NEW
   const [level, setLevel] = useState('Mid')
   const [type, setType] = useState('Technical')
   const [techStack, setTechStack] = useState<string[]>([])
@@ -68,9 +72,10 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
       if (!res.ok) throw new Error(data.error || "Analysis failed")
 
-      // --- AUTO-FILL LOGIC ---
+      // ✅ Auto-fill ALL fields including company logo
       setRole(data.role || '')
-      setCompanyName(data.companyName || '') // Ensure this matches API response key
+      setCompanyName(data.companyName || 'Unknown Company')
+      setCompanyLogoUrl(data.companyLogoUrl || '') // ✅ NEW
       setLevel(data.level || 'Mid')
       setType(data.suggestedType || 'Technical')
       setTechStack(data.techStack || [])
@@ -78,8 +83,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       if (data.cleanedJd) {
         setJdText(data.cleanedJd)
         setJdType('text')
-      } else if (data.jdText) {
-        setJdText(data.jdText)
       }
 
       setStage('config')
@@ -94,13 +97,15 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
   // 2. GENERATE & SAVE
   const handleGenerate = async () => {
     if (!role.trim()) return toast.error("Role is required")
+    if (!companyName.trim()) return toast.error("Company name is required")
 
     setStage('generating')
     try {
       const formData = new FormData()
       formData.append('userId', userId)
       formData.append('role', role)
-      formData.append('companyName', companyName) // Send Company Name to backend
+      formData.append('companyName', companyName)
+      formData.append('companyLogoUrl', companyLogoUrl) // ✅ Send logo URL
       formData.append('level', level)
       formData.append('type', type)
       formData.append('jdInput', jdText)
@@ -129,7 +134,11 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       setNewTech('')
     }
   }
+
   const removeTech = (t: string) => setTechStack(techStack.filter(i => i !== t))
+
+  // Get logo URL for preview
+  const previewLogoUrl = companyLogoUrl || getCompanyLogoOrDefault(companyName)
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 animate-fadeIn pb-20">
@@ -200,16 +209,42 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
         <div className="mt-8 animate-slideInUp">
           <Card className="border-none bg-gradient-to-b from-dark-200 to-dark-100 border border-primary-500/20">
             <CardHeader>
-              <CardTitle className="text-xl flex items-center gap-2"><Sparkles className="size-5 text-accent-300" /> 2. Configuration</CardTitle>
-              <CardDescription>Review and edit the extracted details before generating.</CardDescription>
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Sparkles className="size-5 text-accent-300" /> 2. Configuration
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+
+              {/* Company Preview */}
+              {companyName && (
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-dark-300/30 border border-primary-400/20">
+                  <div className="relative">
+                    <Image
+                      src={previewLogoUrl}
+                      alt={`${companyName} logo`}
+                      width={60}
+                      height={60}
+                      className="rounded-full bg-white p-2 ring-2 ring-primary-400/30"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-light-400 uppercase tracking-wide">Company Preview</p>
+                    <p className="text-lg font-bold text-white">{companyName}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Role & Company Row */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Target Role</Label>
-                  <Input value={role} onChange={e => setRole(e.target.value)} className="bg-dark-300/50 border-white/10" />
+                  <Input
+                    value={role}
+                    onChange={e => setRole(e.target.value)}
+                    className="bg-dark-300/50 border-white/10"
+                    placeholder="e.g. Senior Backend Engineer"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Company Name</Label>

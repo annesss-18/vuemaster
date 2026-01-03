@@ -34,7 +34,6 @@ function isPrivateOrLocalhost(hostname: string): boolean {
 const ALLOWED_PROTOCOLS = ['http:', 'https:'];
 
 export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RESUME_SIZE_MB): Promise<string> {
-  // Validate file size
   const maxSize = maxSizeMB * 1024 * 1024;
   if (file.size > maxSize) {
     throw new Error(`File size exceeds ${maxSizeMB}MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
@@ -52,25 +51,19 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
       }
 
       try {
-        // Import PDFParse class
-        const { PDFParse } = await import('pdf-parse');
+        // ✅ FIX: Correct import for pdf-parse
+        const pdfParse = await import('pdf-parse');
+        const parseFunction = pdfParse.default || pdfParse;
 
-        // Create parser instance with timeout
-        const parsePromise = (async () => {
-          const parser = new PDFParse({ data: buffer });
-          const result = await parser.parse();
-          await parser.destroy();
-          return result;
-        })();
+        const parsePromise = parseFunction(buffer);
 
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('PDF parsing timeout. The file may be corrupted.')), PDF_PARSE_TIMEOUT_MS)
         );
 
         const data = await Promise.race([parsePromise, timeoutPromise]);
-        const text = data?.text?.toString() ?? '';
+        const text = data.text || '';
 
-        // Limit text length
         if (text.length > MAX_TEXT_LENGTH) {
           return text.slice(0, MAX_TEXT_LENGTH) + '\n\n... (content truncated due to length)';
         }
@@ -81,11 +74,10 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
 
         return text;
       } catch (error) {
-        // If it's already a custom error, re-throw it
         if (error instanceof Error && (error.message.includes('timeout') || error.message.includes('PDF') || error.message.includes('empty'))) {
           throw error;
         }
-        throw new Error('PDF parser not available. Please try again.');
+        throw new Error('Failed to parse PDF. The file may be corrupted or password-protected.');
       }
     }
 
@@ -103,7 +95,6 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
   } catch (error) {
     console.error("Error parsing file:", error);
 
-    // Re-throw with original message if it's already a custom error
     if (error instanceof Error) {
       throw error;
     }
@@ -113,26 +104,23 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
 
 export async function extractTextFromUrl(url: string): Promise<string> {
   try {
-    // Validate URL format
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);
-    } catch (err) {
+    } catch {
       throw new Error('Invalid URL format. Please provide a valid HTTP or HTTPS URL.');
     }
 
-    // Only allow HTTP/HTTPS protocols
     if (!ALLOWED_PROTOCOLS.includes(parsedUrl.protocol)) {
       throw new Error('Only HTTP and HTTPS URLs are allowed.');
     }
 
-    // Block private IPs, localhost, and metadata endpoints
     if (isPrivateOrLocalhost(parsedUrl.hostname)) {
       throw new Error('Access to private networks and localhost is not allowed.');
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     const response = await fetch(url, {
       signal: controller.signal,
@@ -149,14 +137,12 @@ export async function extractTextFromUrl(url: string): Promise<string> {
 
     const html = await response.text();
 
-    // Limit HTML size
-    if (html.length > 500000) { // 500KB
+    if (html.length > 500000) {
       throw new Error('Page is too large to process (max 500KB).');
     }
 
     const $ = cheerio.load(html);
 
-    // Remove scripts, styles, and irrelevant tags
     $('script').remove();
     $('style').remove();
     $('nav').remove();
@@ -169,7 +155,6 @@ export async function extractTextFromUrl(url: string): Promise<string> {
       throw new Error('No content could be extracted from the URL.');
     }
 
-    // Limit extracted text
     if (text.length > 20000) {
       return text.slice(0, 20000) + '\n\n... (content truncated)';
     }

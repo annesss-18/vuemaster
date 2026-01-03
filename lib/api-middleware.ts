@@ -1,25 +1,8 @@
-/**
- * API Middleware for Authentication
- * 
- * Provides reusable authentication wrapper for Next.js API routes
- */
-
+// lib/api-middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/actions/auth.action';
+import type { User } from '@/types';
 
-/**
- * Wraps an API route handler with authentication
- * 
- * @param handler - The API route handler that requires authentication
- * @returns Authenticated API route handler
- * 
- * @example
- * export const POST = withAuth(async (req, user) => {
- *   // user.id is guaranteed to be available
- *   const userId = user.id;
- *   // ... process request
- * });
- */
 export function withAuth(
     handler: (req: NextRequest, user: User) => Promise<Response>
 ) {

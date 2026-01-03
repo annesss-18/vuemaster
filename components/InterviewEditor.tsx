@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Plus, X, Save, BrainCircuit, Target } from 'lucide-react';
 import { Button } from './ui/button'; // Assuming you have these or use standard buttons
-import { Badge } from './ui/badge'; // Or use standard div with styles
 
 // Match the new Draft Schema
 interface DraftData {
@@ -27,7 +26,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
     const router = useRouter();
     const [draft, setDraft] = useState<DraftData>(initialDraft);
     const [isSaving, setIsSaving] = useState(false);
-    
+
     // Input states
     const [newTech, setNewTech] = useState('');
     const [newFocus, setNewFocus] = useState('');
@@ -78,7 +77,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
 
             toast.success('Interview Template Created!');
             // Redirect to Dashboard (Hub) instead of starting session
-            router.push('/dashboard'); 
+            router.push('/dashboard');
 
         } catch (error) {
             console.error(error);
@@ -154,7 +153,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
                             <label className="text-sm font-semibold text-light-200">Focus Competencies</label>
                         </div>
                         <p className="text-xs text-light-400">The AI has identified these key areas to test. Add or remove to adjust the interview scope.</p>
-                        
+
                         <div className="flex flex-wrap gap-2">
                             {draft.focusArea?.map(area => (
                                 <span key={area} className="bg-accent-300/10 text-accent-300 border border-accent-300/20 px-3 py-1 rounded-full text-sm flex items-center gap-2">
@@ -179,7 +178,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
                         <div>
                             <p className="text-sm font-semibold text-light-200">AI Generated Questions</p>
                             <p className="text-xs text-light-400 mt-1">
-                                {draft.baseQuestions.length} rigorous questions have been generated based on the role and focus areas above. 
+                                {draft.baseQuestions.length} rigorous questions have been generated based on the role and focus areas above.
                                 They are hidden to simulate a real interview environment.
                             </p>
                         </div>

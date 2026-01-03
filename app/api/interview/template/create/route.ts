@@ -1,6 +1,8 @@
+// app/api/interview/template/create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
+import type { InterviewTemplate } from '@/types';
 
 export const POST = withAuth(async (req: NextRequest, user: any) => {
     try {
@@ -14,18 +16,17 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
         const templateData: Omit<InterviewTemplate, 'id'> = {
             role: body.role,
             companyName: body.companyName || '',
+            companyLogoUrl: body.companyLogoUrl,
             level: body.level || 'Mid',
             type: body.type || 'Technical',
             techStack: body.techStack || [],
-            // NEW FIELDS
             focusArea: body.focusArea || [],
-            isPublic: typeof body.isPublic === 'boolean' ? body.isPublic : false, // Default to private
-            
+            isPublic: typeof body.isPublic === 'boolean' ? body.isPublic : false,
+
             jobDescription: body.jobDescription || '',
             baseQuestions: body.baseQuestions,
             creatorId: user.id,
-            
-            // Metrics
+
             usageCount: 0,
             avgScore: 0,
             createdAt: new Date().toISOString(),

@@ -4,6 +4,7 @@ import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
+import { InterviewTemplate } from '@/types';
 
 export const runtime = 'nodejs';
 
@@ -21,9 +22,9 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
     try {
         const formData = await req.formData();
 
-        // 1. Get User Inputs
         const role = formData.get('role') as string;
-        const companyName = formData.get('companyName') as string; // CAPTURE COMPANY NAME
+        const companyName = formData.get('companyName') as string; // ✅ Accept from form
+        const companyLogoUrl = formData.get('companyLogoUrl') as string; // ✅ Accept from form
         const level = formData.get('level') as string;
         const type = formData.get('type') as string;
         const jdInput = formData.get('jdInput') as string;
@@ -64,24 +65,23 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         const generatedData = result.object;
 
-        // 4. Save Directly to Firestore
-        const templateData: any = {
+        const templateData: Omit<InterviewTemplate, 'id'> = {
             ...generatedData,
-            role: role,
-            companyName: companyName || generatedData.companyName || '', // Prioritize Form Input
-            level: level,
-            type: type,
+            role,
+            companyName: companyName || 'Unknown Company', // ✅ Store company
+            companyLogoUrl,                                  // ✅ Store logo URL
+            level: level as InterviewTemplate['level'],
+            type: type as InterviewTemplate['type'],
             techStack: [...new Set([...userTechStack, ...generatedData.techStack])],
             jobDescription: jdInput,
             creatorId: user.id,
-            isPublic: isPublic,
+            isPublic,
             usageCount: 0,
             avgScore: 0,
             createdAt: new Date().toISOString(),
         };
 
         const docRef = await db.collection('interview_templates').add(templateData);
-
         return NextResponse.json({ success: true, templateId: docRef.id });
 
     } catch (error) {

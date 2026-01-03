@@ -3,8 +3,9 @@
 import { db, auth } from "@/firebase/admin";
 import { cookies } from "next/headers";
 import { logger } from "../logger";
+import { SignInParams, SignUpParams, User } from "@/types";
 
-const SESSION_EXPIRY = 60 * 60 * 24 * 7; // Session expires after 7 days
+const SESSION_EXPIRY = 60 * 60 * 24;
 
 export async function signUp(params: SignUpParams) {
     const { uid, name, email } = params;

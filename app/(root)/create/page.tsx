@@ -20,7 +20,7 @@ const InterviewPage = async () => {
           Configure your session by providing the job context and your background
         </p>
       </div>
-      
+
       {/* Pass the userId to the client component */}
       <CreateInterviewForm userId={user.id} />
     </div>

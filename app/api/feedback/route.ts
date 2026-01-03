@@ -3,6 +3,7 @@ import { createFeedback } from '@/lib/actions/general.action';
 import { withAuth } from '@/lib/api-middleware';
 import { db } from '@/firebase/admin';
 import { logger } from '@/lib/logger';
+import type { User } from '@/types';
 
 export const POST = withAuth(async (req: NextRequest, user: User) => {
   try {

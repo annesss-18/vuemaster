@@ -1,4 +1,4 @@
-// Create lib/logger.ts
+// lib/logger.ts
 export const logger = {
   info: (...args: unknown[]) => {
     if (process.env.NODE_ENV === 'development') {
@@ -12,11 +12,15 @@ export const logger = {
   },
   error: (...args: unknown[]) => {
     console.error(...args);
-    // Could integrate with error tracking service like Sentry
   },
   log: (...args: unknown[]) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(...args);
+    }
+  },
+  debug: (...args: unknown[]) => { // ✅ Add debug method
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(...args);
     }
   }
 };

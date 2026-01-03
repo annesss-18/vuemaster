@@ -1,9 +1,8 @@
-interface Feedback {
+// types/index.ts (rename from index.d.ts)
+export interface Feedback {
   id: string;
   interviewId: string;
   totalScore: number;
-  // Stored as an object with named categories (easy lookup) when created,
-  // e.g. { communicationSkills: { score, comment }, technicalKnowledge: { ... } }
   categoryScores: {
     [key: string]: {
       score: number;
@@ -14,7 +13,6 @@ interface Feedback {
     score: number;
     comment: string;
   }>;
-  // Also persisted as an ordered array for UI display
   categoryScoresArray?: Array<{
     name: string;
     score: number;
@@ -26,130 +24,40 @@ interface Feedback {
   createdAt: string;
 }
 
-interface Interview {
-  // Mapped View Model: Compatible with both legacy 'interviews' collection and new 'interview_sessions'
-  id: string;
-  role: string;
-  level: string;
-  questions: string[];
-  techstack: string[];
-  createdAt: string;
-  userId: string;
-  type: 'technical' | 'behavioral' | 'system-design' | 'hr-cultural' | 'mixed'; // Interview type
-  finalized: boolean;
-  jobDescription?: string; // The full text extracted from the JD input
-  resumeText?: string;     // The full text extracted from the uploaded resume
-  sourceType?: 'text' | 'link' | 'file'; // Metadata about how the JD was added
-  // Optional metadata
-  companyName?: string;
-  location?: string;
-  experienceYears?: string;
-  status?: string;
-  focusArea?: string[];
-}
-
-interface CreateFeedbackParams {
-  interviewId: string;
-  userId: string;
-  transcript: { role: string; content: string }[];
-  feedbackId?: string;
-}
-
-interface User {
-  name: string;
-  email: string;
-  id: string;
-}
-
-// types/index.d.ts (Add to existing file)
-interface InterviewCardProps {
-  id?: string;
-  userId?: string;
-  role: string;
-  type: string;
-  techstack: string[];
-  createdAt?: string;
-  isSession?: boolean;
-}
-
-interface AgentProps {
-  userName: string;
-  userId?: string;
-  interviewId?: string;
-  feedbackId?: string;
-  type: "generate" | "interview";
-  questions?: string[];
-}
-
-interface RouteParams {
-  params: Promise<Record<string, string>>;
-  searchParams: Promise<Record<string, string>>;
-}
-
-interface GetFeedbackByInterviewIdParams {
-  interviewId: string;
-  userId: string;
-}
-
-interface GetLatestInterviewsParams {
-  userId: string;
-  limit?: number;
-}
-
-interface SignInParams {
-  email: string;
-  idToken: string;
-}
-
-interface SignUpParams {
-  uid: string;
-  name: string;
-  email: string;
-}
-
-type FormType = "sign-in" | "sign-up";
-
-interface InterviewFormProps {
-  interviewId: string;
-  role: string;
-  level: string;
-  type: string;
-  techstack: string[];
-  amount: number;
-}
-
-interface TechIconProps {
-  techStack: string[];
-}
-
-interface InterviewTemplate {
+export interface InterviewTemplate {
   id: string;
   creatorId: string;
-  isPublic: boolean;        // NEW: Determines visibility in "Explore"
-  
+  isPublic: boolean;
+
+  // Core Fields
   role: string;
-  companyName?: string;
+  companyName: string;
+  companyLogoUrl?: string;
   level: 'Junior' | 'Mid' | 'Senior' | 'Staff' | 'Executive';
-  type: 'Screening' | 'Technical' | 'System Design' | 'Behavioral' | 'Case Study' | 'HR' | 'Mixed';
-  
+  type: 'Technical' | 'System Design' | 'Behavioral' | 'HR' | 'Mixed';
+
+  // Technical Details
   techStack: string[];
-  focusArea: string[];      // NEW: The "Competencies" identified by AI (e.g. "Scalability")
-  
+  focusArea: string[];
+
+  // Content
   jobDescription: string;
-  baseQuestions: string[];  // Hidden from user during creation, used by Agent
-  
+  baseQuestions: string[];
+
+  // Metadata
   usageCount: number;
   avgScore: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
-interface InterviewSession {
+export interface InterviewSession {
   id: string;
-  templateId: string;       // Reference to the parent template
-  userId: string;           // The candidate
+  templateId: string;
+  userId: string;
 
   // Personalization
-  resumeText?: string;      // Extracted text from uploaded resume
+  resumeText?: string;
 
   // State
   status: 'setup' | 'active' | 'completed';
@@ -158,4 +66,102 @@ interface InterviewSession {
 
   // Result
   feedbackId?: string;
+  finalScore?: number;
+}
+
+// View Models for UI Components
+export interface TemplateCardData {
+  id: string;
+  role: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  level: string;
+  type: string;
+  techStack: string[];
+  usageCount: number;
+  avgScore: number;
+  createdAt: string;
+  isOwnedByUser: boolean;
+}
+
+export interface SessionCardData {
+  id: string;
+  // From Template
+  role: string;
+  companyName: string;
+  companyLogoUrl?: string;
+  level: string;
+  type: string;
+  techStack: string[];
+  // From Session
+  status: 'setup' | 'active' | 'completed';
+  startedAt: string;
+  completedAt?: string;
+  // From Feedback
+  finalScore?: number;
+  hasResume: boolean;
+}
+
+// Legacy type - Keep for backward compatibility
+export interface Interview {
+  id: string;
+  role: string;
+  level: string;
+  questions: string[];
+  techstack: string[];
+  createdAt: string;
+  userId: string;
+  type: string;
+  finalized: boolean;
+  jobDescription?: string;
+  resumeText?: string;
+  companyName?: string;
+  status?: string;
+  focusArea?: string[];
+}
+
+// API Types
+export interface CreateFeedbackParams {
+  interviewId: string;
+  userId: string;
+  transcript: { role: string; content: string }[];
+  feedbackId?: string;
+}
+
+export interface GetFeedbackByInterviewIdParams {
+  interviewId: string;
+  userId: string;
+}
+
+export interface GetLatestInterviewsParams {
+  userId: string;
+  limit?: number;
+}
+
+export interface User {
+  name: string;
+  email: string;
+  id: string;
+}
+
+export interface SignInParams {
+  email: string;
+  idToken: string;
+}
+
+export interface SignUpParams {
+  uid: string;
+  name: string;
+  email: string;
+}
+
+export type FormType = "sign-in" | "sign-up";
+
+export interface RouteParams {
+  params: Promise<Record<string, string>>;
+  searchParams: Promise<Record<string, string>>;
+}
+
+export interface TechIconProps {
+  techStack: string[];
 }

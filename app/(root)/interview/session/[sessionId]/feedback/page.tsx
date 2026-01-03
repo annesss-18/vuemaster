@@ -3,7 +3,6 @@ import { getFeedbackByInterviewId, getInterviewsById } from '@/lib/actions/gener
 import { logger } from '@/lib/logger';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import React from 'react';
 import {
   Award,
   TrendingUp,
@@ -15,6 +14,7 @@ import {
   AlertCircle,
   Sparkles
 } from 'lucide-react';
+import type { RouteParams } from '@/types';
 
 const Page = async ({ params }: RouteParams) => {
   const { sessionId } = await params;
