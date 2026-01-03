@@ -100,11 +100,11 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
     }
 }
 
+// lib/actions/general.action.ts
 export async function getInterviewsById(
     id: string,
     userId?: string
 ): Promise<Interview | null> {
-    // Only fetch from new model
     return await getSessionById(id, userId);
 }
 
@@ -135,7 +135,7 @@ export async function getSessionById(
 
         if (!templateDoc.exists) {
             logger.error(`Template ${sessionData.templateId} not found for session ${sessionId}`);
-            return null; // Return null instead of partial data
+            return null;
         }
 
         const templateData = templateDoc.data();
@@ -149,13 +149,14 @@ export async function getSessionById(
             status: sessionData.status,
             resumeText: sessionData.resumeText,
 
-            // From template - use baseQuestions
+            // From template - include company data
             role: templateData.role,
+            companyName: templateData.companyName || 'Unknown Company', // ✅ ADD
+            companyLogoUrl: templateData.companyLogoUrl, // ✅ ADD
             level: templateData.level,
-            questions: templateData.baseQuestions || [], // Use baseQuestions
+            questions: templateData.baseQuestions || [],
             techstack: templateData.techStack || [],
             jobDescription: templateData.jobDescription || '',
-            companyName: templateData.companyName,
             type: templateData.type,
             finalized: sessionData.status === 'completed',
         } as Interview;

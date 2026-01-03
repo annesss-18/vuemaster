@@ -107,6 +107,8 @@ export interface Interview {
   id: string;
   role: string;
   level: string;
+  companyName?: string;        // ✅ ADD
+  companyLogoUrl?: string;
   questions: string[];
   techstack: string[];
   createdAt: string;

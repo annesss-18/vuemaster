@@ -1,11 +1,10 @@
 // app/(root)/interview/session/[sessionId]/page.tsx
 import { getInterviewsById } from "@/lib/actions/general.action";
-import { getRandomInterviewCover } from "@/lib/utils";
+import { getCompanyLogoOrDefault } from "@/lib/company-utils";
 import { redirect } from "next/navigation";
 import type { RouteParams } from '@/types';
 import Image from "next/image";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
-import Agent from "@/components/Agent";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { Briefcase, TrendingUp, Sparkles, Clock, Target, AlertCircle } from "lucide-react";
 import Link from "next/link";
@@ -45,7 +44,6 @@ const Page = async ({ params }: RouteParams) => {
     );
   }
 
-  // Validate required data
   if (!interview.questions || interview.questions.length === 0) {
     return (
       <div className="max-w-4xl mx-auto p-6 animate-fadeIn">
@@ -70,7 +68,7 @@ const Page = async ({ params }: RouteParams) => {
       </div>
     );
   }
-
+  const logoUrl = interview.companyLogoUrl || getCompanyLogoOrDefault(interview.companyName || 'Unknown Company');
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Header Section with Interview Details */}
@@ -81,7 +79,7 @@ const Page = async ({ params }: RouteParams) => {
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <Image
-                  src={getRandomInterviewCover()}
+                  src={logoUrl}
                   alt="interview-cover"
                   width={80}
                   height={80}
@@ -93,7 +91,7 @@ const Page = async ({ params }: RouteParams) => {
                 <div className="space-y-2">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 border border-primary-400/30 backdrop-blur-md w-fit">
                     <Sparkles className="size-3 text-primary-300 animate-pulse" />
-                    <span className="text-xs font-semibold text-primary-200">Live Interview</span>
+                    <span className="text-xs font-semibold text-primary-200">Interview Session</span>
                   </div>
 
                   <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
@@ -140,43 +138,33 @@ const Page = async ({ params }: RouteParams) => {
               <TrendingUp className="size-6 text-info-100" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-light-100">Interview Guidelines</h3>
-              <ul className="space-y-2 text-sm text-light-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-300 font-bold">•</span>
-                  <span>Find a quiet environment and ensure your microphone is working properly</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-300 font-bold">•</span>
-                  <span>Speak clearly and take your time to formulate thoughtful responses</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-300 font-bold">•</span>
-                  <span>The AI interviewer will ask follow-up questions based on your answers</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary-300 font-bold">•</span>
-                  <span>You&apos;ll receive detailed feedback immediately after completing the interview</span>
-                </li>
-              </ul>
+              <h3 className="text-lg font-semibold text-light-100">Ready for Interview</h3>
+              <p className="text-sm text-light-300">
+                The audio interview feature is currently being updated. 
+                You can still view your interview questions and prepare your responses.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Agent Component - Interview Interface */}
-      <div className="animate-slideInLeft" style={{ animationDelay: '0.2s' }}>
-        <Agent
-          userName={user?.name ?? ""}
-          userId={user?.id}
-          interviewId={sessionId}
-          type="interview"
-          questions={interview.questions}
-          jobTitle={interview.role}
-          jobLevel={interview.level}
-          jobDescription={interview.jobDescription || ''}
-          resumeText={interview.resumeText || ''}
-        />
+      {/* Questions Preview */}
+      <div className="card-border animate-slideInLeft" style={{ animationDelay: '0.2s' }}>
+        <div className="card !p-8 space-y-6">
+          <h2 className="text-2xl font-bold text-light-100">Interview Questions</h2>
+          <div className="space-y-4">
+            {interview.questions.map((question, index) => (
+              <div key={index} className="p-4 rounded-xl bg-dark-200/30 border border-primary-400/10">
+                <div className="flex gap-4">
+                  <span className="flex-shrink-0 size-8 rounded-full bg-primary-500/20 flex items-center justify-center text-sm font-bold text-primary-300">
+                    {index + 1}
+                  </span>
+                  <p className="text-light-200 flex-1">{question}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
