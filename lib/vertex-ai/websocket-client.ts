@@ -1,4 +1,4 @@
-// lib/vertex-ai/websocket-client.ts
+// lib/vertex-ai/websocket-client.ts (FIXED VERSION)
 import {
     LiveAPIConnectionState,
     LiveAPIMessage,
@@ -22,6 +22,7 @@ export class VertexAIWebSocketClient {
     private audioContext: AudioContext | null = null;
     private audioQueue: AudioBuffer[] = [];
     private isPlaying = false;
+    private currentAudioSource: AudioBufferSourceNode | null = null;
 
     private connectionState: LiveAPIConnectionState = 'disconnected';
     private callbacks: LiveAPICallbacks = {};
@@ -35,6 +36,10 @@ export class VertexAIWebSocketClient {
 
     // Session config
     private sessionConfig: LiveAPISessionConfig | null = null;
+    private accessToken: string | null = null;
+
+    // Audio capture state
+    private wasCapturingBeforeDisconnect = false;
 
     constructor(callbacks: LiveAPICallbacks = {}) {
         this.callbacks = callbacks;
@@ -53,7 +58,7 @@ export class VertexAIWebSocketClient {
     }
 
     /**
-     * Connect to WebSocket proxy
+     * Connect to Vertex AI via direct WebSocket
      */
     private async connect(): Promise<void> {
         this.setConnectionState('connecting');
@@ -68,52 +73,51 @@ export class VertexAIWebSocketClient {
                 this.audioContext = createAudioContext(24000);
             }
 
-            // Get WebSocket URL from our API
-            const params = new URLSearchParams({
-                sessionId: this.sessionConfig.sessionId,
-                systemInstruction: this.sessionConfig.systemInstruction,
-                ...(this.sessionConfig.voice && { voice: this.sessionConfig.voice }),
+            // Get authenticated WebSocket URL from our API
+            logger.info('🔗 Requesting Vertex AI connection info...');
+
+            const response = await fetch('/api/vertex-ai/connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    sessionId: this.sessionConfig.sessionId,
+                    systemInstruction: this.sessionConfig.systemInstruction,
+                    voice: this.sessionConfig.voice,
+                }),
             });
 
-            const response = await fetch(`/api/live?${params.toString()}`);
-
             if (!response.ok) {
-                let errorMessage = 'Failed to get connection info';
-                try {
-                    const error = await response.json();
-                    errorMessage = error.error || errorMessage;
-                } catch {
-                    // Response is not JSON, try to get text
-                    const text = await response.text();
-                    errorMessage = text.substring(0, 200);
-                }
-                throw new Error(errorMessage);
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to get connection info');
             }
 
-            let connectionInfo;
-            try {
-                connectionInfo = await response.json();
-            } catch (parseError) {
-                const text = await response.text();
-                logger.error('Failed to parse JSON response:', text.substring(0, 200));
-                throw new Error('Server returned invalid response. Check server logs.');
+            const connectionInfo = await response.json();
+            const { url, accessToken } = connectionInfo;
+
+            if (!url || !accessToken) {
+                throw new Error('Invalid connection info received from server');
             }
 
-            const vertexUrl = connectionInfo.url;
+            this.accessToken = accessToken;
 
-            if (!vertexUrl) {
-                throw new Error('No WebSocket URL returned from server');
-            }
+            // Connect directly to Vertex AI with access token
+            const authenticatedUrl = `${url}?access_token=${accessToken}`;
 
-            logger.info('🔌 Connecting directly to Vertex AI:', vertexUrl.substring(0, 50) + '...');
+            logger.info('🔌 Connecting directly to Vertex AI...');
+            this.ws = new WebSocket(authenticatedUrl);
 
-            this.ws = new WebSocket(vertexUrl);
             this.setupWebSocketHandlers();
 
         } catch (error) {
             logger.error('Connection failed:', error);
             this.callbacks.onError?.(error as Error);
             this.setConnectionState('failed');
+
+            // Cleanup on connection failure
+            this.cleanup();
+
             throw error;
         }
     }
@@ -158,9 +162,11 @@ export class VertexAIWebSocketClient {
             this.ws?.send(JSON.stringify(setupConfig));
             logger.info('📤 Setup configuration sent');
 
-            // Start audio capture after setup sent
+            // Start audio capture after setup sent (or restore if reconnecting)
             setTimeout(() => {
-                this.startAudioCapture();
+                if (this.wasCapturingBeforeDisconnect || this.reconnectAttempts === 0) {
+                    this.startAudioCapture();
+                }
             }, 500);
         };
 
@@ -180,6 +186,12 @@ export class VertexAIWebSocketClient {
 
         this.ws.onclose = (event) => {
             logger.info('🔌 WebSocket closed:', event.code, event.reason);
+
+            // Track if we were capturing audio before disconnect
+            this.wasCapturingBeforeDisconnect =
+                this.mediaRecorder !== null &&
+                this.mediaRecorder.state !== 'inactive';
+
             this.stopAudioCapture();
 
             if (this.shouldReconnect && !this.manualDisconnect) {
@@ -216,9 +228,7 @@ export class VertexAIWebSocketClient {
             // Handle interruption
             if (interrupted) {
                 logger.info('🔇 Interrupted - clearing audio queue');
-                this.audioQueue = [];
-                this.isPlaying = false;
-                this.callbacks.onSpeechEnd?.();
+                this.clearAudioQueue();
             }
 
             // Handle model response
@@ -287,10 +297,15 @@ export class VertexAIWebSocketClient {
      */
     private stopAudioCapture(): void {
         if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-            this.mediaRecorder.stop();
-            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-            logger.info('🛑 Audio capture stopped');
+            try {
+                this.mediaRecorder.stop();
+                this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                logger.info('🛑 Audio capture stopped');
+            } catch (error) {
+                logger.error('Error stopping audio capture:', error);
+            }
         }
+        this.mediaRecorder = null;
     }
 
     /**
@@ -342,12 +357,14 @@ export class VertexAIWebSocketClient {
             // Add to queue
             this.audioQueue.push(audioBuffer);
 
-            // Start playing if not already playing
+            // Start playing if not already playing (thread-safe)
             if (!this.isPlaying) {
+                this.isPlaying = true;
                 this.playNextInQueue();
             }
         } catch (error) {
             logger.error('Error playing audio:', error);
+            this.isPlaying = false;
             this.callbacks.onSpeechEnd?.();
         }
     }
@@ -358,18 +375,40 @@ export class VertexAIWebSocketClient {
     private playNextInQueue(): void {
         if (this.audioQueue.length === 0) {
             this.isPlaying = false;
+            this.currentAudioSource = null;
             this.callbacks.onSpeechEnd?.();
             return;
         }
 
-        this.isPlaying = true;
         const audioBuffer = this.audioQueue.shift()!;
 
-        if (!this.audioContext) return;
+        if (!this.audioContext) {
+            this.isPlaying = false;
+            return;
+        }
 
-        playAudioBuffer(this.audioContext, audioBuffer, () => {
+        this.currentAudioSource = playAudioBuffer(this.audioContext, audioBuffer, () => {
             this.playNextInQueue();
         });
+    }
+
+    /**
+     * Clear audio queue and stop current playback
+     */
+    private clearAudioQueue(): void {
+        this.audioQueue = [];
+
+        if (this.currentAudioSource) {
+            try {
+                this.currentAudioSource.stop();
+            } catch (error) {
+                // Already stopped
+            }
+            this.currentAudioSource = null;
+        }
+
+        this.isPlaying = false;
+        this.callbacks.onSpeechEnd?.();
     }
 
     /**
@@ -409,6 +448,24 @@ export class VertexAIWebSocketClient {
     }
 
     /**
+     * Cleanup resources
+     */
+    private cleanup(): void {
+        this.stopAudioCapture();
+        this.clearAudioQueue();
+
+        if (this.audioContext && this.audioContext.state !== 'closed') {
+            this.audioContext.close().catch((error) => {
+                logger.error('Error closing audio context:', error);
+            });
+            this.audioContext = null;
+        }
+
+        this.ws = null;
+        this.accessToken = null;
+    }
+
+    /**
      * Stop the session
      */
     stop(): void {
@@ -422,21 +479,11 @@ export class VertexAIWebSocketClient {
             this.reconnectTimeout = null;
         }
 
-        this.stopAudioCapture();
-
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.close();
-            this.ws = null;
         }
 
-        this.audioQueue = [];
-        this.isPlaying = false;
-
-        if (this.audioContext) {
-            this.audioContext.close();
-            this.audioContext = null;
-        }
-
+        this.cleanup();
         this.setConnectionState('disconnected');
     }
 

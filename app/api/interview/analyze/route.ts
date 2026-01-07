@@ -41,7 +41,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         // 2. AI Extraction
         const result = await generateObject({
-            model: google('gemini-2.0-flash-exp'),
+            model: google('gemini-3-pro-preview'),
             schema: analysisSchema,
             prompt: `
             Analyze this job posting and extract structured information.

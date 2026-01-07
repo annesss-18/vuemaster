@@ -1,11 +1,11 @@
-// app/(root)/interview/session/[sessionId]/page.tsx
+// app/(root)/interview/session/[sessionId]/page.tsx (FIXED IMPORT)
 import { getInterviewsById } from "@/lib/actions/general.action";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import type { RouteParams } from '@/types';
 import Image from "next/image";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
-import InterviewAgent from "@/components/InterviewAgent";
+import { InterviewAgent } from "@/components/InterviewAgent"; // ✅ FIXED: Named import
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { Briefcase, TrendingUp, Sparkles, Clock, Target, AlertCircle } from "lucide-react";
 import Link from "next/link";

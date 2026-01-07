@@ -83,7 +83,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
         `.trim();
 
         const result = await generateObject({
-            model: google('gemini-2.5-flash-image'),
+            model: google('gemini-3-pro-preview'),
             schema: draftSchema,
             prompt: constructedPrompt,
         });

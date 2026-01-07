@@ -1,4 +1,4 @@
-// components/CreateInterviewForm.tsx
+// components/CreateInterviewForm.tsx (FIXED)
 "use client"
 
 import React, { useState } from 'react'
@@ -31,10 +31,12 @@ const INTERVIEW_TYPES = [
 
 const LEVELS = ['Junior', 'Mid', 'Senior', 'Staff', 'Executive']
 
+type Stage = 'input' | 'analyzing' | 'config' | 'generating';
+
 export default function CreateInterviewForm({ userId }: CreateInterviewFormProps) {
   const router = useRouter();
 
-  const [stage, setStage] = useState<'input' | 'analyzing' | 'config' | 'generating'>('input')
+  const [stage, setStage] = useState<Stage>('input')
 
   // JD State
   const [jdType, setJdType] = useState<'text' | 'url' | 'file'>('text')
@@ -45,7 +47,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
   // Config State
   const [role, setRole] = useState('')
   const [companyName, setCompanyName] = useState('')
-  const [companyLogoUrl, setCompanyLogoUrl] = useState('') // ✅ NEW
+  const [companyLogoUrl, setCompanyLogoUrl] = useState('')
   const [level, setLevel] = useState('Mid')
   const [type, setType] = useState('Technical')
   const [techStack, setTechStack] = useState<string[]>([])
@@ -72,10 +74,10 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
       if (!res.ok) throw new Error(data.error || "Analysis failed")
 
-      // ✅ Auto-fill ALL fields including company logo
+      // Auto-fill ALL fields including company logo
       setRole(data.role || '')
       setCompanyName(data.companyName || 'Unknown Company')
-      setCompanyLogoUrl(data.companyLogoUrl || '') // ✅ NEW
+      setCompanyLogoUrl(data.companyLogoUrl || '')
       setLevel(data.level || 'Mid')
       setType(data.suggestedType || 'Technical')
       setTechStack(data.techStack || [])
@@ -105,7 +107,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       formData.append('userId', userId)
       formData.append('role', role)
       formData.append('companyName', companyName)
-      formData.append('companyLogoUrl', companyLogoUrl) // ✅ Send logo URL
+      formData.append('companyLogoUrl', companyLogoUrl)
       formData.append('level', level)
       formData.append('type', type)
       formData.append('jdInput', jdText)
@@ -137,7 +139,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
   const removeTech = (t: string) => setTechStack(techStack.filter(i => i !== t))
 
-  // Get logo URL for preview
   const previewLogoUrl = companyLogoUrl || getCompanyLogoOrDefault(companyName)
 
   return (
@@ -196,8 +197,8 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
           </Tabs>
 
           {stage === 'input' && (
-            <Button onClick={handleAnalyze} disabled={stage === 'analyzing'} className="w-full h-12 btn-primary mt-4">
-              {stage === 'analyzing' ? <Loader2 className="animate-spin" /> : <Wand2 className="size-4" />}
+            <Button onClick={handleAnalyze} disabled={false} className="w-full h-12 btn-primary mt-4">
+              <Wand2 className="size-4" />
               Analyze & Auto-Fill
             </Button>
           )}
@@ -205,7 +206,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       </Card>
 
       {/* STEP 2: CONFIGURATION */}
-      {stage !== 'input' && stage !== 'analyzing' && (
+      {(stage === 'config' || stage === 'generating') && (
         <div className="mt-8 animate-slideInUp">
           <Card className="border-none bg-gradient-to-b from-dark-200 to-dark-100 border border-primary-500/20">
             <CardHeader>
