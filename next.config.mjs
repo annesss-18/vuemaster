@@ -1,6 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
+    
+    // Enable WebSocket support
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '10mb',
+        },
+    },
+    
+    // WebSocket configuration
+    webpack: (config, { isServer }) => {
+        if (isServer) {
+            config.externals.push({
+                'ws': 'commonjs ws',
+            });
+        }
+        return config;
+    },
+    
     images: {
         dangerouslyAllowSVG: true,
         contentDispositionType: 'attachment',
@@ -16,6 +34,7 @@ const nextConfig = {
             },
         ],
     },
+    
     async headers() {
         return [
             {
