@@ -36,6 +36,7 @@ export interface LiveAPISessionConfig {
     systemInstruction: string;
     voice?: 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Aoede';
     enableTranscription?: boolean;
+    model?: string;
 }
 
 /**

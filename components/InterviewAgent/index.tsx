@@ -5,3 +5,4 @@ export { default as InterviewStatus } from './InterviewStatus';
 export { default as ConversationView } from './ConversationView';
 export { default as CallControls } from './CallControls';
 export { default as FeedbackLoading } from './FeedbackLoading';
+export { default as ConnectionDiagnostics } from './ConnectionDiagnostics';

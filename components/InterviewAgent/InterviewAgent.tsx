@@ -7,6 +7,7 @@ import InterviewStatus from './InterviewStatus';
 import ConversationView from './ConversationView';
 import CallControls from './CallControls';
 import FeedbackLoading from './FeedbackLoading';
+import ConnectionDiagnostics from './ConnectionDiagnostics';
 
 interface InterviewAgentProps {
     userName: string;
@@ -84,6 +85,13 @@ export default function InterviewAgent({
                 isReconnecting={isReconnecting}
                 reconnectAttempt={reconnectAttempt}
                 error={error}
+            />
+
+            {/* Connection Diagnostics (when not connected) */}
+            <ConnectionDiagnostics
+                connectionState={connectionState}
+                error={error}
+                reconnectAttempt={reconnectAttempt}
             />
 
             {/* Conversation History */}

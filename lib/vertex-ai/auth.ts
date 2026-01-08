@@ -69,7 +69,9 @@ export async function getVertexAIWebSocketURL(): Promise<string> {
   }
 
   // Construct Vertex AI Live API WebSocket URL
-  const wsUrl = `wss://${location}-aiplatform.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
+  // Format: wss://{location}-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.PredictionService.BidiPredict
+  const host = `${location}-aiplatform.googleapis.com`;
+  const wsUrl = `wss://${host}/ws/google.cloud.aiplatform.v1beta1.PredictionService.BidiPredict`;
 
   // Append access token as query parameter
   const authenticatedUrl = `${wsUrl}?access_token=${accessToken}`;

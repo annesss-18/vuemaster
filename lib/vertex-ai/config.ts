@@ -6,7 +6,7 @@
 
 export const VERTEX_AI_CONFIG = {
   // Model configuration
-  model: process.env.VERTEX_AI_MODEL || 'gemini-live-2.5-flash-native-audio',
+  model: process.env.VERTEX_AI_MODEL || 'gemini-2.0-flash-exp',
 
   // Location/Region
   location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
@@ -80,6 +80,15 @@ export function generateSetupConfig(options: {
       ...(tools && tools.length > 0 ? { tools } : {}),
     },
   };
+}
+
+/**
+ * Get full Vertex AI model resource path
+ * Format: projects/{project}/locations/{location}/publishers/google/models/{model}
+ */
+export function getVertexAIModelPath(projectId: string, location: string, model?: string): string {
+  const modelName = model || VERTEX_AI_CONFIG.model;
+  return `projects/${projectId}/locations/${location}/publishers/google/models/${modelName}`;
 }
 
 /**

@@ -1,4 +1,4 @@
-// lib/vertex-ai/websocket-client.ts (FIXED VERSION)
+// lib/vertex-ai/websocket-client.ts (FIXED VERSION - Enhanced Error Handling)
 import {
     LiveAPIConnectionState,
     LiveAPIMessage,
@@ -37,9 +37,14 @@ export class VertexAIWebSocketClient {
     // Session config
     private sessionConfig: LiveAPISessionConfig | null = null;
     private accessToken: string | null = null;
+    private wsUrl: string | null = null;
 
     // Audio capture state
     private wasCapturingBeforeDisconnect = false;
+
+    // Connection timeout
+    private connectionTimeout: NodeJS.Timeout | null = null;
+    private readonly CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
 
     constructor(callbacks: LiveAPICallbacks = {}) {
         this.callbacks = callbacks;
@@ -62,6 +67,21 @@ export class VertexAIWebSocketClient {
      */
     private async connect(): Promise<void> {
         this.setConnectionState('connecting');
+
+        // Clear any existing timeout
+        if (this.connectionTimeout) {
+            clearTimeout(this.connectionTimeout);
+        }
+
+        // Set connection timeout
+        this.connectionTimeout = setTimeout(() => {
+            logger.error('❌ Connection timeout after 30 seconds');
+            if (this.ws && this.ws.readyState === WebSocket.CONNECTING) {
+                this.ws.close();
+            }
+            this.callbacks.onError?.(new Error('Connection timeout. Please check your network and try again.'));
+            this.setConnectionState('failed');
+        }, this.CONNECTION_TIMEOUT_MS);
 
         try {
             if (!this.sessionConfig) {
@@ -89,30 +109,69 @@ export class VertexAIWebSocketClient {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to get connection info');
+                const errorText = await response.text();
+                let errorMessage = 'Failed to get connection info';
+
+                try {
+                    const error = JSON.parse(errorText);
+                    errorMessage = error.error || errorMessage;
+                } catch {
+                    errorMessage = `Server error: ${response.status} ${response.statusText}`;
+                }
+
+                throw new Error(errorMessage);
             }
 
             const connectionInfo = await response.json();
             const { url, accessToken } = connectionInfo;
 
             if (!url || !accessToken) {
-                throw new Error('Invalid connection info received from server');
+                throw new Error('Invalid connection info: Missing URL or access token');
             }
 
             this.accessToken = accessToken;
+            this.wsUrl = url;
 
-            // Connect directly to Vertex AI with access token
-            const authenticatedUrl = `${url}?access_token=${accessToken}`;
+            // Construct authenticated WebSocket URL
+            const authenticatedUrl = `${url}?access_token=${encodeURIComponent(accessToken)}`;
 
             logger.info('🔌 Connecting directly to Vertex AI...');
+            logger.info(`📍 WebSocket URL: ${url.substring(0, 50)}...`);
+
+            // Create WebSocket connection
             this.ws = new WebSocket(authenticatedUrl);
+
+            // Set binary type for audio data
+            this.ws.binaryType = 'arraybuffer';
 
             this.setupWebSocketHandlers();
 
         } catch (error) {
-            logger.error('Connection failed:', error);
-            this.callbacks.onError?.(error as Error);
+            logger.error('❌ Connection failed:', error);
+
+            // Clear timeout
+            if (this.connectionTimeout) {
+                clearTimeout(this.connectionTimeout);
+                this.connectionTimeout = null;
+            }
+
+            // Provide detailed error information
+            let errorMessage = 'Failed to connect to Vertex AI';
+
+            if (error instanceof Error) {
+                errorMessage = error.message;
+
+                // Add specific troubleshooting hints
+                if (error.message.includes('fetch')) {
+                    errorMessage += '\n\nTroubleshooting:\n- Check your internet connection\n- Verify the API endpoint is accessible\n- Check browser console for CORS errors';
+                } else if (error.message.includes('token')) {
+                    errorMessage += '\n\nTroubleshooting:\n- Service account credentials may be invalid\n- Check environment variables in .env.local\n- Verify Google Cloud project permissions';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage += '\n\nTroubleshooting:\n- Network connection is slow or unstable\n- Try again in a moment\n- Check if firewall is blocking WebSocket connections';
+                }
+            }
+
+            this.callbacks.onError?.(new Error(errorMessage));
             this.setConnectionState('failed');
 
             // Cleanup on connection failure
@@ -130,6 +189,13 @@ export class VertexAIWebSocketClient {
 
         this.ws.onopen = () => {
             logger.info('✅ WebSocket connected to Vertex AI');
+
+            // Clear connection timeout
+            if (this.connectionTimeout) {
+                clearTimeout(this.connectionTimeout);
+                this.connectionTimeout = null;
+            }
+
             this.setConnectionState('connected');
             this.reconnectAttempts = 0;
 
@@ -138,7 +204,7 @@ export class VertexAIWebSocketClient {
 
             const setupConfig = {
                 setup: {
-                    model: 'models/gemini-live-2.5-flash-native-audio',
+                    model: this.sessionConfig.model || 'models/gemini-2.0-flash-exp',
                     generation_config: {
                         response_modalities: ['AUDIO'],
                         speech_config: {
@@ -159,13 +225,21 @@ export class VertexAIWebSocketClient {
                 },
             };
 
-            this.ws?.send(JSON.stringify(setupConfig));
-            logger.info('📤 Setup configuration sent');
+            try {
+                this.ws?.send(JSON.stringify(setupConfig));
+                logger.info('📤 Setup configuration sent');
+            } catch (error) {
+                logger.error('❌ Failed to send setup config:', error);
+                this.callbacks.onError?.(new Error('Failed to initialize session'));
+                return;
+            }
 
             // Start audio capture after setup sent (or restore if reconnecting)
             setTimeout(() => {
                 if (this.wasCapturingBeforeDisconnect || this.reconnectAttempts === 0) {
-                    this.startAudioCapture();
+                    this.startAudioCapture().catch(error => {
+                        logger.error('Failed to start audio capture:', error);
+                    });
                 }
             }, 500);
         };
@@ -176,16 +250,60 @@ export class VertexAIWebSocketClient {
                 await this.handleServerMessage(data);
             } catch (error) {
                 logger.error('Error handling message:', error);
+                // Don't throw - continue processing other messages
             }
         };
 
-        this.ws.onerror = (error) => {
-            logger.error('WebSocket error:', error);
-            this.callbacks.onError?.(new Error('WebSocket connection failed'));
+        this.ws.onerror = (event) => {
+            logger.error('❌ WebSocket error event:', {
+                type: event.type,
+                target: event.target,
+                readyState: this.ws?.readyState,
+            });
+
+            // Clear connection timeout
+            if (this.connectionTimeout) {
+                clearTimeout(this.connectionTimeout);
+                this.connectionTimeout = null;
+            }
+
+            // Provide detailed error message
+            let errorMessage = 'WebSocket connection failed';
+
+            if (this.ws) {
+                switch (this.ws.readyState) {
+                    case WebSocket.CONNECTING:
+                        errorMessage = 'Connection failed while connecting. Check your network and credentials.';
+                        break;
+                    case WebSocket.CLOSING:
+                        errorMessage = 'Connection closed unexpectedly.';
+                        break;
+                    case WebSocket.CLOSED:
+                        errorMessage = 'Connection closed. Will attempt to reconnect.';
+                        break;
+                }
+            }
+
+            // Check for common issues
+            if (!this.accessToken) {
+                errorMessage += '\n\nMissing access token - authentication failed.';
+            }
+
+            this.callbacks.onError?.(new Error(errorMessage));
         };
 
         this.ws.onclose = (event) => {
-            logger.info('🔌 WebSocket closed:', event.code, event.reason);
+            logger.info('🔌 WebSocket closed:', {
+                code: event.code,
+                reason: event.reason || 'No reason provided',
+                wasClean: event.wasClean,
+            });
+
+            // Clear connection timeout
+            if (this.connectionTimeout) {
+                clearTimeout(this.connectionTimeout);
+                this.connectionTimeout = null;
+            }
 
             // Track if we were capturing audio before disconnect
             this.wasCapturingBeforeDisconnect =
@@ -194,7 +312,33 @@ export class VertexAIWebSocketClient {
 
             this.stopAudioCapture();
 
-            if (this.shouldReconnect && !this.manualDisconnect) {
+            // Handle different close codes
+            let shouldAttemptReconnect = this.shouldReconnect && !this.manualDisconnect;
+
+            switch (event.code) {
+                case 1000: // Normal closure
+                    logger.info('✅ Normal connection closure');
+                    shouldAttemptReconnect = false;
+                    break;
+                case 1001: // Going away
+                    logger.info('🔄 Server going away - will reconnect');
+                    break;
+                case 1006: // Abnormal closure
+                    logger.warn('⚠️ Abnormal closure - connection lost');
+                    break;
+                case 1008: // Policy violation
+                    logger.error('❌ Policy violation - check credentials');
+                    shouldAttemptReconnect = false;
+                    this.callbacks.onError?.(new Error('Authentication failed. Please check your credentials.'));
+                    break;
+                case 1011: // Server error
+                    logger.error('❌ Server error occurred');
+                    break;
+                default:
+                    logger.warn(`⚠️ Unexpected close code: ${event.code}`);
+            }
+
+            if (shouldAttemptReconnect) {
                 this.attemptReconnect();
             } else {
                 this.setConnectionState('disconnected');
@@ -214,7 +358,7 @@ export class VertexAIWebSocketClient {
 
         // Handle errors
         if (data.error) {
-            logger.error('Server error:', data.error);
+            logger.error('❌ Server error:', data.error);
             this.callbacks.onError?.(
                 new Error(data.error.message || 'Server error occurred')
             );
@@ -279,15 +423,15 @@ export class VertexAIWebSocketClient {
             };
 
             this.mediaRecorder.onerror = (event) => {
-                logger.error('MediaRecorder error:', event);
+                logger.error('❌ MediaRecorder error:', event);
                 this.callbacks.onError?.(new Error('Microphone recording failed'));
             };
 
             this.mediaRecorder.start(250); // 250ms chunks
-            logger.info('🎙️ Recording started');
+            logger.info('✅ Recording started');
 
         } catch (error) {
-            logger.error('Microphone access failed:', error);
+            logger.error('❌ Microphone access failed:', error);
             this.callbacks.onError?.(error as Error);
         }
     }
@@ -314,6 +458,7 @@ export class VertexAIWebSocketClient {
     private async sendAudioChunk(blob: Blob): Promise<void> {
         try {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+                logger.warn('⚠️ Cannot send audio - WebSocket not open');
                 return;
             }
 
@@ -357,7 +502,7 @@ export class VertexAIWebSocketClient {
             // Add to queue
             this.audioQueue.push(audioBuffer);
 
-            // Start playing if not already playing (thread-safe)
+            // Start playing if not already playing
             if (!this.isPlaying) {
                 this.isPlaying = true;
                 this.playNextInQueue();
@@ -419,7 +564,7 @@ export class VertexAIWebSocketClient {
             logger.error('❌ Max reconnection attempts reached');
             this.setConnectionState('failed');
             this.callbacks.onError?.(
-                new Error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts`)
+                new Error(`Failed to reconnect after ${this.maxReconnectAttempts} attempts. Please refresh the page.`)
             );
             return;
         }
@@ -454,6 +599,11 @@ export class VertexAIWebSocketClient {
         this.stopAudioCapture();
         this.clearAudioQueue();
 
+        if (this.connectionTimeout) {
+            clearTimeout(this.connectionTimeout);
+            this.connectionTimeout = null;
+        }
+
         if (this.audioContext && this.audioContext.state !== 'closed') {
             this.audioContext.close().catch((error) => {
                 logger.error('Error closing audio context:', error);
@@ -463,6 +613,7 @@ export class VertexAIWebSocketClient {
 
         this.ws = null;
         this.accessToken = null;
+        this.wsUrl = null;
     }
 
     /**
@@ -479,8 +630,13 @@ export class VertexAIWebSocketClient {
             this.reconnectTimeout = null;
         }
 
+        if (this.connectionTimeout) {
+            clearTimeout(this.connectionTimeout);
+            this.connectionTimeout = null;
+        }
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.close();
+            this.ws.close(1000, 'User disconnected');
         }
 
         this.cleanup();

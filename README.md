@@ -50,6 +50,8 @@ vuemaster/
 
 - **Node.js** (v20+)
 - **npm** or **yarn**
+- **Google Cloud Account** with Vertex AI API enabled
+- **Service Account** with required permissions
 
 ### Environment Setup
 
@@ -95,6 +97,36 @@ npm run dev
 ```
 
 Visit `http://localhost:3000` to view the application.
+
+## 🔧 Troubleshooting
+
+### WebSocket Connection Issues
+
+If you encounter WebSocket connection errors:
+
+1. **Check browser console** for specific error messages
+2. **Verify environment variables** are correctly set in `.env.local`
+3. **Test authentication**:
+   ```bash
+   npx tsx scripts/test-vertex-auth.ts
+   ```
+4. **Review detailed troubleshooting guide**: See `docs/WEBSOCKET_TROUBLESHOOTING.md`
+
+### Common Error Messages
+
+- ❗ "WebSocket connection failed" → Check credentials and network
+- ❗ "Authentication failed" → Verify service account configuration
+- ❗ "Connection timeout" → Check network connectivity
+- ❗ "Microphone access denied" → Allow microphone in browser settings
+
+### Quick Fixes
+
+1. **Restart dev server** after changing `.env.local`
+2. **Clear browser cache** and try incognito mode
+3. **Disable VPN** temporarily to test
+4. **Check Google Cloud Status**: Visit [status.cloud.google.com](https://status.cloud.google.com)
+
+For detailed troubleshooting steps, error codes, and solutions, see the [WebSocket Troubleshooting Guide](./docs/WEBSOCKET_TROUBLESHOOTING.md).
 
 ## 🤝 Contributing
 
