@@ -19,9 +19,6 @@
 build/
 dist/
 
-# Production
-/build
-
 # Miscellaneous
 .DS_Store
 *.pem
@@ -52,14 +49,12 @@ next-env.d.ts
 *.swp
 *.swo
 
-# Firebase
+# Firebase credentials (keep secret!)
 *-firebase-adminsdk-*.json
 firebase-service-account*.json
+vuemaster-*.json
 .firebase/
 firebase-debug.log
-vuemaster-*.json
-*-firebase-adminsdk-*.json
-firebase-service-account*.json
 
 # System Files
 Thumbs.db

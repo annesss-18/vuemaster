@@ -1,13 +1,28 @@
 // lib/rate-limit.ts
 /**
  * Simple in-memory rate limiting for API routes
- * For production, consider using Redis or a dedicated service
+ * 
+ * ⚠️ PRODUCTION NOTE: This in-memory implementation does NOT work across 
+ * multiple serverless instances. For production deployments with horizontal 
+ * scaling, use Redis, Upstash, or a dedicated rate limiting service.
+ * 
+ * Example with Upstash:
+ * import { Ratelimit } from "@upstash/ratelimit";
+ * import { Redis } from "@upstash/redis";
+ * const ratelimit = new Ratelimit({
+ *   redis: Redis.fromEnv(),
+ *   limiter: Ratelimit.slidingWindow(10, "60 s"),
+ * });
  */
 
 interface RateLimitEntry {
     count: number;
     resetTime: number;
 }
+
+// Default configuration constants
+const DEFAULT_WINDOW_MS = 60 * 1000; // 1 minute
+const DEFAULT_MAX_REQUESTS = 10;
 
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
@@ -36,8 +51,8 @@ export function checkRateLimit(
     identifier: string,
     config: RateLimitConfig = {}
 ): { allowed: boolean; remaining: number; resetTime: number } {
-    const windowMs = config.windowMs || 60 * 1000; // Default: 1 minute
-    const maxRequests = config.maxRequests || 10; // Default: 10 requests
+    const windowMs = config.windowMs || DEFAULT_WINDOW_MS;
+    const maxRequests = config.maxRequests || DEFAULT_MAX_REQUESTS;
 
     const now = Date.now();
     const entry = rateLimitMap.get(identifier);
@@ -86,8 +101,13 @@ export function clearRateLimit(identifier: string): void {
 
 /**
  * Get current rate limit status without incrementing
+ * @param identifier - Unique identifier (userId, IP, etc.)
+ * @param maxRequests - Max requests to calculate remaining (defaults to DEFAULT_MAX_REQUESTS)
  */
-export function getRateLimitStatus(identifier: string): {
+export function getRateLimitStatus(
+    identifier: string,
+    maxRequests: number = DEFAULT_MAX_REQUESTS
+): {
     count: number;
     remaining: number;
     resetTime: number;
@@ -105,7 +125,7 @@ export function getRateLimitStatus(identifier: string): {
 
     return {
         count: entry.count,
-        remaining: Math.max(0, 10 - entry.count),
+        remaining: Math.max(0, maxRequests - entry.count),
         resetTime: entry.resetTime,
     };
 }

@@ -1,10 +1,10 @@
-// components/CreateInterviewForm.tsx (FIXED)
+// components/CreateInterviewForm.tsx (FIXED & REFACTORED)
 "use client"
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { FileText, Upload, Loader2, Sparkles, X, CheckCircle2, ArrowLeft, Wand2, Globe, Lock, Building2 } from 'lucide-react'
+import { FileText, Upload, Loader2, Sparkles, X, CheckCircle2, ArrowLeft, Wand2, Globe, Lock, Building2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,8 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { validateAndSanitizeURL } from '@/lib/validation'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import Image from 'next/image'
-import { getCompanyLogoOrDefault } from '@/lib/company-utils'
+import CompanyLogo from '@/components/CompanyLogo'
 
 interface CreateInterviewFormProps {
   userId: string
@@ -52,7 +51,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
   const [type, setType] = useState('Technical')
   const [techStack, setTechStack] = useState<string[]>([])
   const [newTech, setNewTech] = useState('')
-  const [isPublic, setIsPublic] = useState(false)
+  const [isPublic, setIsPublic] = useState(true)
 
   // 1. ANALYZE JD
   const handleAnalyze = async () => {
@@ -139,7 +138,6 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
 
   const removeTech = (t: string) => setTechStack(techStack.filter(i => i !== t))
 
-  const previewLogoUrl = companyLogoUrl || getCompanyLogoOrDefault(companyName)
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 animate-fadeIn pb-20">
@@ -220,13 +218,11 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
               {companyName && (
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-dark-300/30 border border-primary-400/20">
                   <div className="relative">
-                    <Image
-                      src={previewLogoUrl}
-                      alt={`${companyName} logo`}
-                      width={60}
-                      height={60}
+                    <CompanyLogo
+                      companyName={companyName}
+                      logoUrl={companyLogoUrl}
+                      size={60}
                       className="rounded-full bg-white p-2 ring-2 ring-primary-400/30"
-                      unoptimized
                     />
                   </div>
                   <div className="flex-1">
@@ -236,7 +232,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                 </div>
               )}
 
-              {/* Role & Company Row */}
+              {/* ROW 1: Role & Company */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Target Role</Label>
@@ -261,24 +257,17 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                 </div>
               </div>
 
-              {/* Level & Tech Stack */}
-              <div className="space-y-2">
-                <Label>Experience Level</Label>
-                <select value={level} onChange={e => setLevel(e.target.value)} className="w-full h-10 rounded-md bg-dark-300/50 border border-white/10 px-3 text-sm">
-                  {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-
+              {/* ROW 2: Tech Stack & Skills (Full Width) */}
               <div className="space-y-2">
                 <Label>Tech Stack & Skills</Label>
-                <div className="flex flex-wrap gap-2 mb-2 p-3 bg-dark-300/30 rounded-lg min-h-[48px]">
+                <div className="flex flex-wrap gap-2 mb-2 p-3 bg-dark-300/30 rounded-lg min-h-[48px] border border-white/5">
                   {techStack.map(t => (
-                    <span key={t} className="bg-primary-500/20 text-primary-100 px-2 py-1 rounded text-sm flex items-center gap-1">
-                      {t} <button onClick={() => removeTech(t)}><X className="size-3 hover:text-white" /></button>
+                    <span key={t} className="bg-primary-500/20 text-primary-100 px-2 py-1 rounded text-sm flex items-center gap-1 border border-primary-500/20">
+                      {t} <button onClick={() => removeTech(t)}><X className="size-3 hover:text-white transition-colors" /></button>
                     </span>
                   ))}
                   <input
-                    className="bg-transparent outline-none text-sm min-w-[100px] flex-1"
+                    className="bg-transparent outline-none text-sm min-w-[120px] flex-1 text-white placeholder:text-light-400/50"
                     placeholder="Type & Enter to add..."
                     value={newTech}
                     onChange={e => setNewTech(e.target.value)}
@@ -287,29 +276,99 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
                 </div>
               </div>
 
-              {/* Type & Visibility */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              {/* ROW 3: Level, Experience, Visibility (3 Columns) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                {/* 1. Experience Level */}
                 <div className="space-y-2">
-                  <Label>Interview Type</Label>
-                  <select value={type} onChange={e => setType(e.target.value)} className="w-full h-10 rounded-md bg-dark-300/50 border border-white/10 px-3 text-sm">
-                    {INTERVIEW_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
+                  <Label>Experience Level</Label>
+                  <div className="relative h-10">
+                    <select
+                      value={level}
+                      onChange={e => setLevel(e.target.value)}
+                      className="w-full h-full rounded-md bg-dark-300/50 border border-white/10 px-3 pr-10 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all hover:bg-dark-300/70 [&>option]:checked:bg-primary-500 [&>option]:checked:text-white"
+                      style={{
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        appearance: 'none',
+                        backgroundImage: 'none'
+                      }}
+                    >
+                      {LEVELS.map(l => (
+                        <option
+                          key={l}
+                          value={l}
+                          className="bg-dark-200 text-white py-2 checked:bg-primary-500"
+                          style={{ background: '#1a1a2e' }}
+                        >
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <ChevronDown className="size-4 text-light-400" />
+                    </div>
+                  </div>
                 </div>
 
+                {/* 2. Interview Type */}
+                <div className="space-y-2">
+                  <Label>Interview Type</Label>
+                  <div className="relative h-10">
+                    <select
+                      value={type}
+                      onChange={e => setType(e.target.value)}
+                      className="w-full h-full rounded-md bg-dark-300/50 border border-white/10 px-3 pr-10 text-sm text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all hover:bg-dark-300/70 [&>option]:checked:bg-primary-500 [&>option]:checked:text-white"
+                      style={{
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        appearance: 'none',
+                        backgroundImage: 'none'
+                      }}
+                    >
+                      {INTERVIEW_TYPES.map(t => (
+                        <option
+                          key={t.value}
+                          value={t.value}
+                          className="bg-dark-200 text-white py-2 checked:bg-primary-500"
+                          style={{ background: '#1a1a2e' }}
+                        >
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <ChevronDown className="size-4 text-light-400" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Visibility */}
                 <div className="space-y-2">
                   <Label>Visibility</Label>
-                  <div className="flex items-center gap-4 bg-dark-300/30 p-2 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-1 bg-dark-300/30 p-1 rounded-lg border border-white/5 h-10">
                     <button
-                      onClick={() => setIsPublic(false)}
-                      className={cn("flex-1 py-1.5 text-sm rounded flex items-center justify-center gap-2 transition-all", !isPublic ? "bg-dark-100 text-white shadow" : "text-light-400 hover:text-white")}
+                      type="button"
+                      onClick={() => setIsPublic(true)}
+                      className={cn(
+                        "flex-1 h-full text-xs rounded flex items-center justify-center gap-1.5 transition-all font-medium",
+                        isPublic
+                          ? "bg-primary-500/20 text-primary-200 shadow-sm border border-primary-400/30"
+                          : "text-light-400 hover:text-white hover:bg-dark-200/50"
+                      )}
                     >
-                      <Lock className="size-3" /> Private
+                      <Globe className="size-3.5" /> Public
                     </button>
                     <button
-                      onClick={() => setIsPublic(true)}
-                      className={cn("flex-1 py-1.5 text-sm rounded flex items-center justify-center gap-2 transition-all", isPublic ? "bg-primary-500/20 text-primary-200 shadow" : "text-light-400 hover:text-white")}
+                      type="button"
+                      onClick={() => setIsPublic(false)}
+                      className={cn(
+                        "flex-1 h-full text-xs rounded flex items-center justify-center gap-1.5 transition-all font-medium",
+                        !isPublic
+                          ? "bg-dark-100 text-white shadow-sm border border-white/10"
+                          : "text-light-400 hover:text-white hover:bg-dark-200/50"
+                      )}
                     >
-                      <Globe className="size-3" /> Public
+                      <Lock className="size-3.5" /> Private
                     </button>
                   </div>
                 </div>

@@ -48,7 +48,7 @@ const Page = async () => {
                 </p>
               </div>
 
-              <Link href="/interview/create" className="btn-primary text-lg px-8 py-4 group">
+              <Link href="/create" className="btn-primary text-lg px-8 py-4 group">
                 <Plus className="size-6" />
                 <span className="font-bold">Create Interview</span>
               </Link>

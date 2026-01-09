@@ -1,11 +1,10 @@
 // components/TemplateCard.tsx
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import dayjs from 'dayjs';
 import { Button } from './ui/button';
 import DisplayTechIcons from './DisplayTechIcons';
-import { getCompanyLogoOrDefault } from '@/lib/company-utils';
+import CompanyLogo from './CompanyLogo';
 import {
     Calendar,
     Users,
@@ -26,7 +25,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
     showActions = false
 }) => {
     const formattedDate = dayjs(template.createdAt).format('MMM D, YYYY');
-    const logoUrl = template.companyLogoUrl || getCompanyLogoOrDefault(template.companyName);
+
 
     return (
         <div className="card-border w-full max-w-[380px] min-h-[450px] animate-fadeIn">
@@ -43,13 +42,11 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                     {/* Company Logo */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-accent-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <Image
-                            src={logoUrl}
-                            alt={`${template.companyName} logo`}
-                            width={100}
-                            height={100}
-                            className="relative rounded-full object-cover size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50 bg-white p-4"
-                            unoptimized
+                        <CompanyLogo
+                            companyName={template.companyName}
+                            logoUrl={template.companyLogoUrl}
+                            size={100}
+                            className="relative rounded-full size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50 bg-white p-4"
                         />
                     </div>
 

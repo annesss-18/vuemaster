@@ -8,6 +8,27 @@ import { Query } from 'firebase-admin/firestore';
 import { CreateFeedbackParams, Feedback, GetFeedbackByInterviewIdParams, GetLatestInterviewsParams, Interview, InterviewTemplate, SessionCardData, TemplateCardData } from "@/types";
 import { FieldPath } from 'firebase-admin/firestore';
 
+/**
+ * In-memory template cache for reducing Firestore reads.
+ * 
+ * ⚠️ PRODUCTION NOTE: This in-memory cache does NOT work across multiple 
+ * serverless instances. For production deployments with horizontal scaling,
+ * consider using:
+ * 
+ * 1. Redis/Upstash:
+ *    import { Redis } from "@upstash/redis";
+ *    const redis = Redis.fromEnv();
+ *    await redis.set(`template:${id}`, JSON.stringify(template), { ex: 300 });
+ *    const cached = await redis.get(`template:${id}`);
+ * 
+ * 2. Next.js unstable_cache (for static/SSR data):
+ *    import { unstable_cache } from 'next/cache';
+ *    const getTemplateById = unstable_cache(
+ *      async (id) => { ... },
+ *      ['template'],
+ *      { revalidate: 300 }
+ *    );
+ */
 const templateCache = new Map<string, { data: InterviewTemplate; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -420,7 +441,7 @@ export async function clearTemplateCache(templateId?: string): Promise<void> {
 
 export async function createFeedback(params: CreateFeedbackParams) {
     const { interviewId, userId, transcript } = params;
-    
+
     try {
         const formattedTranscript = transcript
             .map((sentence: { role: string; content: string }) =>
@@ -454,7 +475,7 @@ Please score the candidate from 0 to 100 in the following areas. Do not add cate
 
         if (!validationResult.success) {
             logger.error('AI generated invalid feedback structure:', validationResult.error);
-            
+
             // ✅ FIXED: Use .issues instead of .errors
             validationResult.error.issues.forEach((err) => {
                 logger.error(`Validation error at ${err.path.join('.')}: ${err.message}`);
@@ -516,7 +537,7 @@ Please score the candidate from 0 to 100 in the following areas. Do not add cate
 
     } catch (error) {
         logger.error("Error creating feedback:", error);
-        
+
         if (error instanceof Error) {
             return {
                 success: false,

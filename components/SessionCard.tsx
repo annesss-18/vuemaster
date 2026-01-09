@@ -1,11 +1,10 @@
 // components/SessionCard.tsx
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import dayjs from 'dayjs';
 import { Button } from './ui/button';
 import DisplayTechIcons from './DisplayTechIcons';
-import { getCompanyLogoOrDefault } from '@/lib/company-utils';
+import CompanyLogo from './CompanyLogo';
 import {
     Calendar,
     ArrowRight,
@@ -30,7 +29,7 @@ const SessionCard: React.FC<SessionCardProps> = ({ session }) => {
         ? dayjs(session.completedAt).format('MMM D, YYYY')
         : null;
 
-    const logoUrl = session.companyLogoUrl || getCompanyLogoOrDefault(session.companyName);
+
 
     const isCompleted = session.status === 'completed';
     const isInProgress = session.status === 'active';
@@ -78,13 +77,11 @@ const SessionCard: React.FC<SessionCardProps> = ({ session }) => {
                     {/* Company Logo */}
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-accent-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <Image
-                            src={logoUrl}
-                            alt={`${session.companyName} logo`}
-                            width={100}
-                            height={100}
-                            className="relative rounded-full object-cover size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50 bg-white p-4"
-                            unoptimized
+                        <CompanyLogo
+                            companyName={session.companyName}
+                            logoUrl={session.companyLogoUrl}
+                            size={100}
+                            className="relative rounded-full size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50 bg-white p-4"
                         />
                     </div>
 

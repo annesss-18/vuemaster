@@ -1,11 +1,10 @@
 // components/InterviewCard.tsx
 import dayjs from 'dayjs';
-import Image from 'next/image';
 import React from 'react';
-import { getRandomInterviewCover } from '@/lib/utils';
 import Link from 'next/link';
 import { Button } from './ui/button';
 import DisplayTechIcons from './DisplayTechIcons';
+import CompanyLogo from './CompanyLogo';
 import { Calendar, Star, ArrowRight, TrendingUp } from 'lucide-react';
 
 // Define Interface for Feedback if not imported
@@ -22,11 +21,12 @@ interface InterviewCardProps {
     type: string;
     techstack: string[];
     createdAt: Date;
+    companyName?: string;
     isSession?: boolean;
-    feedback?: FeedbackData | null; // NEW PROP
+    feedback?: FeedbackData | null;
 }
 
-const InterviewCard = ({ id, role, type, techstack, createdAt, isSession, feedback }: InterviewCardProps) => {
+const InterviewCard = ({ id, role, type, techstack, createdAt, companyName, isSession, feedback }: InterviewCardProps) => {
     // Removed async data fetching from here. Data is now passed via props.
 
     const normalisedType = /mix/gi.test(type) ? "Mixed" : type;
@@ -59,13 +59,10 @@ const InterviewCard = ({ id, role, type, techstack, createdAt, isSession, feedba
                 <div className="relative z-10 space-y-4">
                     <div className="relative group">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary-500/20 to-accent-300/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <Image
-                            src={getRandomInterviewCover()}
-                            alt="cover"
-                            width={100}
-                            height={100}
-                            className="relative rounded-full object-cover size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50"
-                            unoptimized
+                        <CompanyLogo
+                            companyName={companyName || 'Unknown Company'}
+                            size={100}
+                            className="relative rounded-full size-[100px] ring-4 ring-primary-400/30 shadow-2xl transition-all duration-300 group-hover:scale-110 group-hover:ring-primary-400/50"
                         />
                     </div>
 

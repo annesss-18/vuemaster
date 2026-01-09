@@ -23,16 +23,15 @@ const draftSchema = z.object({
 });
 
 export const POST = withAuth(async (req: NextRequest, user: any) => {
+    // Parse formData ONCE before try block so fallback can access values
+    const formData = await req.formData();
+    const jdType = formData.get('jdType') as string;
+    const jdInput = formData.get('jdInput');
+    const roleInput = formData.get('role') as string;
+    const levelInput = formData.get('level') as string || 'Mid';
+    const typeInput = formData.get('type') as string || 'Technical';
+
     try {
-        const formData = await req.formData();
-        const jdType = formData.get('jdType') as string;
-        const jdInput = formData.get('jdInput');
-
-        // Handle "UNKNOWN" or empty role input
-        const roleInput = formData.get('role') as string;
-        const levelInput = formData.get('level') as string || 'Mid';
-        const typeInput = formData.get('type') as string || 'Technical';
-
         // 1. Robust Extraction
         let jdText = "";
         try {
@@ -94,10 +93,9 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
     } catch (error) {
         console.error("Draft Generation Error:", error);
 
-        // Fallback response to prevent crash in case AI fails
-        const fallbackFormData = await req.formData();
+        // Fallback response using pre-parsed form values (no double formData consumption)
         return NextResponse.json({
-            role: (fallbackFormData.get('role') as string) || "Software Engineer",
+            role: roleInput || "Software Engineer",
             techStack: ["General"],
             baseQuestions: [
                 "Tell me about your most challenging technical project.",
@@ -105,8 +103,8 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
                 "What is your preferred tech stack and why?"
             ],
             jobDescription: "Auto-generated fallback due to error.",
-            level: "Mid",
-            type: "Technical",
+            level: levelInput as "Junior" | "Mid" | "Senior" | "Staff" | "Executive",
+            type: typeInput as "Technical" | "Behavioral" | "System Design" | "HR" | "Mixed",
             focusArea: ["General Competence", "Problem Solving"],
             systemInstruction: "You are a helpful and professional technical interviewer."
         });

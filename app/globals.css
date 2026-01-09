@@ -886,3 +886,32 @@
 .contain-paint {
   contain: paint;
 }
+
+/* ============================================
+   FORM SELECT DROPDOWN STYLING
+   ============================================ */
+
+/* Custom select dropdown styling */
+select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #1e2139;
+  color: #f3f4f6;
+  padding: 12px 16px;
+}
+
+select option:hover,
+select option:focus,
+select option:checked {
+  background-color: #252941;
+  background: linear-gradient(0deg, #252941 0%, #252941 100%);
+}
+
+/* Firefox specific */
+@-moz-document url-prefix() {
+  select option {
+    background-color: #1e2139;
+  }
+}

@@ -15,7 +15,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return data.keys().hasAll(['creatorId', 'role', 'level', 'type', 'techStack', 'jobDescription', 'baseQuestions', 'isPublic', 'createdAt']) &&
              data.level in ['Junior', 'Mid', 'Senior', 'Staff', 'Executive'] &&
-             data.type in ['Screening', 'Technical', 'System Design', 'Behavioral', 'Case Study', 'HR', 'Mixed'] &&
+             data.type in ['Technical', 'System Design', 'Behavioral', 'HR', 'Mixed'] &&
              data.techStack is list &&
              data.baseQuestions is list &&
              data.baseQuestions.size() >= 1 &&

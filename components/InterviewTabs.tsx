@@ -62,10 +62,11 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     userId={userId}
                     role={template.role}
                     type={template.type}
-                    techstack={template.techstack} // Note: Ensure this prop name matches (techstack vs techStack)
+                    techstack={template.techstack}
                     createdAt={template.createdAt}
+                    companyName={template.companyName}
                     isSession={false}
-                    feedback={null} // Templates have no feedback
+                    feedback={null}
                   />
                 </div>
               ))}
@@ -80,7 +81,7 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     Be the first to create an interview template!
                   </p>
                 </div>
-                <Link href="/interview/create" className="btn-primary inline-flex items-center gap-2">
+                <Link href="/create" className="btn-primary inline-flex items-center gap-2">
                   <span>Create First Template</span>
                 </Link>
               </div>
@@ -116,8 +117,9 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     type={session.type}
                     techstack={session.techstack}
                     createdAt={session.createdAt}
+                    companyName={session.companyName}
                     isSession={true}
-                    feedback={session.feedback} // PASS FEEDBACK HERE
+                    feedback={session.feedback}
                   />
                 </div>
               ))}
@@ -132,7 +134,7 @@ export default function InterviewTabs({ userSessions, allTemplates, userId }: In
                     Start your first interview session to practice!
                   </p>
                 </div>
-                <Link href="/interview/create" className="btn-primary inline-flex items-center gap-2">
+                <Link href="/create" className="btn-primary inline-flex items-center gap-2">
                   <span>Start First Session</span>
                 </Link>
               </div>

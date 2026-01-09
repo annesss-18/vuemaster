@@ -1,26 +1,56 @@
-// lib/logger.ts
+// lib/logger.ts (FIXED VERSION - Enhanced with debug support)
+
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const logger = {
+  /**
+   * Info level - Shows in development only
+   */
   info: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.info(...args);
+    if (isDevelopment) {
+      console.info('ℹ️', ...args);
     }
   },
+
+  /**
+   * Debug level - Shows in development only
+   * Use for verbose logging that helps with troubleshooting
+   */
+  debug: (...args: unknown[]) => {
+    if (isDevelopment) {
+      console.debug('🔍', ...args);
+    }
+  },
+
+  /**
+   * Warning level - Always shows
+   */
   warn: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(...args);
-    }
+    console.warn('⚠️', ...args);
   },
+
+  /**
+   * Error level - Always shows
+   */
   error: (...args: unknown[]) => {
-    console.error(...args);
+    console.error('❌', ...args);
   },
+
+  /**
+   * Log level - Shows in development only
+   */
   log: (...args: unknown[]) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(...args);
+    if (isDevelopment) {
+      console.log('📝', ...args);
     }
   },
-  debug: (...args: unknown[]) => { // ✅ Add debug method
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(...args);
+
+  /**
+   * Success level - Shows in development only
+   */
+  success: (...args: unknown[]) => {
+    if (isDevelopment) {
+      console.log('✅', ...args);
     }
-  }
+  },
 };

@@ -107,7 +107,7 @@ export interface Interview {
   id: string;
   role: string;
   level: string;
-  companyName?: string;        // ✅ ADD
+  companyName?: string;
   companyLogoUrl?: string;
   questions: string[];
   techstack: string[];
@@ -117,7 +117,6 @@ export interface Interview {
   finalized: boolean;
   jobDescription?: string;
   resumeText?: string;
-  companyName?: string;
   status?: string;
   focusArea?: string[];
 }

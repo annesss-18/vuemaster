@@ -1,18 +1,11 @@
-// app/(root)/layout.tsx (UPDATED WITH STARTUP VALIDATION)
+// app/(root)/layout.tsx
 import React from 'react'
 import { ReactNode } from 'react'
 import Image from 'next/image'
 import { isAuthenticated } from '@/lib/actions/auth.action';
 import { redirect } from 'next/navigation';
 import Navigation from '@/components/Navigation';
-import { initializeApplication } from '@/lib/startup';
 
-// Initialize application on server startup
-if (typeof window === 'undefined') {
-  initializeApplication().catch((error) => {
-    console.error('Failed to initialize application:', error);
-  });
-}
 
 const RootLayout = async ({ children }: { children: ReactNode }) => {
   const isUserAuthenticated = await isAuthenticated();

@@ -1,12 +1,11 @@
 import { getTemplateById } from "@/lib/actions/general.action";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
-import StartSessionButton from "@/components/StartSessionButton"; // We will create this client component
+import CompanyLogo from "@/components/CompanyLogo";
+import StartSessionButton from "@/components/StartSessionButton";
 import { Briefcase, Clock, Target, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { getRandomInterviewCover } from "@/lib/utils";
 
 const TemplatePage = async ({ params }: { params: Promise<{ templateId: string }> }) => {
     const { templateId } = await params;
@@ -40,12 +39,10 @@ const TemplatePage = async ({ params }: { params: Promise<{ templateId: string }
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
                         <div className="relative group shrink-0">
                             <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <Image
-                                src={getRandomInterviewCover()}
-                                alt="template-cover"
-                                width={80}
-                                height={80}
-                                className="relative rounded-full object-cover size-20 ring-4 ring-primary-400/30 shadow-2xl"
+                            <CompanyLogo
+                                companyName={template.companyName || 'Unknown Company'}
+                                size={80}
+                                className="relative rounded-full size-20 ring-4 ring-primary-400/30 shadow-2xl"
                             />
                         </div>
                         <div className="space-y-2 flex-1">
