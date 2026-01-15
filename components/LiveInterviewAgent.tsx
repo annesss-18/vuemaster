@@ -87,10 +87,17 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
     const handleStartInterview = async () => {
         try {
             setPhase('active');
-            await connect();
 
-            // Start capturing after connection
+            // Register callback
+            onAudioReceived((base64Data) => {
+                queueAudio(base64Data);
+            });
+
+            // Start capturing FIRST to ensure we have mic access and user gesture is preserved
             await startCapture(handleAudioChunk);
+
+            // Connect to Live API
+            await connect();
 
         } catch (error) {
             setPhase('setup');
@@ -248,10 +255,10 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
                             {/* Status indicator */}
                             <div className="flex items-center gap-2">
                                 <div className={`size-3 rounded-full ${connectionStatus === 'connected'
-                                        ? 'bg-success-100 animate-pulse'
-                                        : connectionStatus === 'connecting'
-                                            ? 'bg-warning-200 animate-pulse'
-                                            : 'bg-light-400'
+                                    ? 'bg-success-100 animate-pulse'
+                                    : connectionStatus === 'connecting'
+                                        ? 'bg-warning-200 animate-pulse'
+                                        : 'bg-light-400'
                                     }`} />
                                 <span className="text-sm font-medium text-light-200 capitalize">
                                     {connectionStatus}
@@ -260,8 +267,8 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
 
                             {/* Timer */}
                             <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${sessionTimeWarning
-                                    ? 'bg-warning-200/20 border border-warning-200/30'
-                                    : 'bg-dark-200/60 border border-primary-400/20'
+                                ? 'bg-warning-200/20 border border-warning-200/30'
+                                : 'bg-dark-200/60 border border-primary-400/20'
                                 }`}>
                                 <Clock className={`size-4 ${sessionTimeWarning ? 'text-warning-200' : 'text-light-300'}`} />
                                 <span className={`text-sm font-mono ${sessionTimeWarning ? 'text-warning-200' : 'text-light-200'}`}>
@@ -277,8 +284,8 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
                                 onClick={handleToggleMute}
                                 disabled={connectionStatus !== 'connected'}
                                 className={`p-3 rounded-full transition-all ${isMuted
-                                        ? 'bg-destructive-100/20 border border-destructive-100/40 text-destructive-100'
-                                        : 'bg-primary-500/20 border border-primary-400/40 text-primary-300 hover:bg-primary-500/30'
+                                    ? 'bg-destructive-100/20 border border-destructive-100/40 text-destructive-100'
+                                    : 'bg-primary-500/20 border border-primary-400/40 text-primary-300 hover:bg-primary-500/30'
                                     }`}
                             >
                                 {isMuted ? <MicOff className="size-5" /> : <Mic className="size-5" />}
@@ -413,8 +420,8 @@ function TranscriptEntryComponent({ entry }: { entry: TranscriptEntry }) {
     return (
         <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
             <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${isUser
-                    ? 'bg-accent-300/20 border border-accent-300/40'
-                    : 'bg-primary-500/20 border border-primary-400/40'
+                ? 'bg-accent-300/20 border border-accent-300/40'
+                : 'bg-primary-500/20 border border-primary-400/40'
                 }`}>
                 {isUser ? (
                     <User className="size-4 text-accent-300" />
@@ -427,8 +434,8 @@ function TranscriptEntryComponent({ entry }: { entry: TranscriptEntry }) {
                     {isUser ? 'You' : 'AI Interviewer'}
                 </p>
                 <div className={`inline-block rounded-2xl px-4 py-2 max-w-[85%] ${isUser
-                        ? 'bg-accent-300/10 border border-accent-300/20 text-light-200'
-                        : 'bg-dark-200/60 border border-primary-400/20 text-light-100'
+                    ? 'bg-accent-300/10 border border-accent-300/20 text-light-200'
+                    : 'bg-dark-200/60 border border-primary-400/20 text-light-100'
                     }`}>
                     <p className="text-sm">{entry.content}</p>
                 </div>

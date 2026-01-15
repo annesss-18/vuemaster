@@ -1,7 +1,9 @@
 class AudioProcessor extends AudioWorkletProcessor {
     constructor() {
         super();
-        this.bufferSize = 4096;
+        // Use 256 samples to minimize latency while keeping overhead manageable
+        // Web Audio API processes 128 samples at a time, so this is 2 chunks
+        this.bufferSize = 256;
         this.buffer = new Float32Array(this.bufferSize);
         this.bufferIndex = 0;
     }

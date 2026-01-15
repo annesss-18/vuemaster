@@ -55,6 +55,8 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     const audioCallbackRef = useRef<((base64Data: string) => void) | null>(null);
     const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const currentTranscriptRef = useRef<string>('');
+    const reconnectionAttemptsRef = useRef(0);
+    const isIntentionalDisconnectRef = useRef(false);
 
     // Timer effect
     useEffect(() => {
@@ -75,71 +77,6 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             }
         };
     }, [status]);
-
-    const connect = useCallback(async () => {
-        try {
-            setStatus('connecting');
-            setError(null);
-
-            // 1. Get ephemeral token from our API
-            const tokenResponse = await fetch('/api/live/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId,
-                    interviewContext,
-                }),
-            });
-
-            if (!tokenResponse.ok) {
-                const errorData = await tokenResponse.json();
-                throw new Error(errorData.error || 'Failed to get authentication token');
-            }
-
-            const { token, model } = await tokenResponse.json();
-
-            // 2. Create GenAI client with ephemeral token
-            // Ephemeral tokens require v1alpha API version
-            const ai = new GoogleGenAI({
-                apiKey: token,
-                httpOptions: { apiVersion: 'v1alpha' }
-            });
-
-            // 3. Connect to Live API
-            const session = await ai.live.connect({
-                model: model,
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                },
-                callbacks: {
-                    onopen: () => {
-                        console.log('Live API connection established');
-                        setStatus('connected');
-                    },
-                    onmessage: (message: LiveServerMessage) => {
-                        handleMessage(message);
-                    },
-                    onerror: (e: ErrorEvent) => {
-                        console.error('Live API error:', e);
-                        setError(e.message || 'Unknown WebSocket error');
-                        setStatus('error');
-                    },
-                    onclose: (e: CloseEvent) => {
-                        console.log('Live API connection closed:', e.reason);
-                        setStatus('disconnected');
-                    },
-                },
-            });
-
-            sessionRef.current = session;
-
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Connection failed';
-            setError(errorMessage);
-            setStatus('error');
-            throw err;
-        }
-    }, [sessionId, interviewContext]);
 
     const handleMessage = useCallback((message: LiveServerMessage) => {
         // Handle interruption
@@ -216,7 +153,107 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         }
     }, [onInterruption]);
 
+    const connect = useCallback(async () => {
+        try {
+            setStatus('connecting');
+            setError(null);
+            isIntentionalDisconnectRef.current = false;
+
+            // 1. Get ephemeral token from our API
+            const tokenResponse = await fetch('/api/live/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId,
+                    interviewContext,
+                }),
+            });
+
+            if (!tokenResponse.ok) {
+                const errorData = await tokenResponse.json();
+                throw new Error(errorData.error || 'Failed to get authentication token');
+            }
+
+            const { token, model } = await tokenResponse.json();
+
+            // 2. Create GenAI client with ephemeral token
+            // Ephemeral tokens require v1alpha API version
+            const ai = new GoogleGenAI({
+                apiKey: token,
+                httpOptions: { apiVersion: 'v1alpha' }
+            });
+
+            // 3. Connect to Live API
+            const session = await ai.live.connect({
+                model: model,
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                },
+                callbacks: {
+                    onopen: () => {
+                        console.log('Live API connection established');
+                        setStatus('connected');
+                        reconnectionAttemptsRef.current = 0; // Reset on success
+                    },
+                    onmessage: (message: LiveServerMessage) => {
+                        handleMessage(message);
+                    },
+                    onerror: (e: ErrorEvent) => {
+                        console.error('Live API error:', e);
+                        setError(e.message || 'Unknown WebSocket error');
+                        setStatus('error');
+                    },
+                    onclose: (e: CloseEvent) => {
+                        console.log('Live API connection closed:', e.reason);
+                        if (!isIntentionalDisconnectRef.current) {
+                            setStatus('disconnected');
+                            reconnect(); // Attempt to reconnect
+                        } else {
+                            setStatus('disconnected');
+                        }
+                    },
+                },
+            });
+
+            sessionRef.current = session;
+
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Connection failed';
+            setError(errorMessage);
+            setStatus('error');
+            throw err;
+        }
+    }, [sessionId, interviewContext, handleMessage]); // Added handleMessage dependency
+
+    const reconnect = useCallback(async () => {
+        const maxReconnectionAttempts = 5;
+        const baseDelay = 1000;
+
+        if (reconnectionAttemptsRef.current >= maxReconnectionAttempts) {
+            setError('Failed to reconnect after multiple attempts');
+            setStatus('error');
+            return;
+        }
+
+        const delay = baseDelay * Math.pow(2, reconnectionAttemptsRef.current);
+        reconnectionAttemptsRef.current += 1;
+
+        console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectionAttemptsRef.current}/${maxReconnectionAttempts})`);
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        try {
+            await connect();
+        } catch (error) {
+            console.error('Reconnection failed:', error);
+            // Recursive call is safe here because of the async delay
+            await reconnect();
+        }
+    }, [connect]);
+
+
     const disconnect = useCallback(() => {
+        isIntentionalDisconnectRef.current = true;
         if (sessionRef.current) {
             sessionRef.current.close();
             sessionRef.current = null;
@@ -225,13 +262,26 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     }, []);
 
     const sendAudio = useCallback((base64Data: string) => {
-        if (sessionRef.current && status === 'connected') {
+        if (!sessionRef.current) {
+            // console.warn('Session not available, audio not sent');
+            return;
+        }
+
+        if (status !== 'connected') {
+            // console.warn('Not connected, audio not sent. Status:', status);
+            return;
+        }
+
+        try {
             sessionRef.current.sendRealtimeInput({
                 audio: {
                     data: base64Data,
                     mimeType: 'audio/pcm;rate=16000',
                 },
             });
+        } catch (error) {
+            console.error('Failed to send audio chunk:', error);
+            // Consider reconnecting checks here if consistently failing
         }
     }, [status]);
 

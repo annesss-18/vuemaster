@@ -72,9 +72,9 @@ export const metadata: Metadata = {
     creator: "@vuemaster",
   },
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon-16x16.png",
-    apple: "/apple-touch-icon.png",
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/robot.png",
   },
   manifest: "/site.webmanifest",
 };

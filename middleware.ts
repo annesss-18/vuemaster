@@ -27,17 +27,17 @@ export function middleware(request: NextRequest) {
     // For stricter CSP, consider using nonces for scripts
     const cspHeader = process.env.NODE_ENV === 'production'
         ? `
-            default-src 'self';
-            script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com;
-            style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-            img-src 'self' blob: data: https: http:;
-            font-src 'self' https://fonts.gstatic.com;
-            connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com https://va.vercel-scripts.com;
-            frame-ancestors 'none';
-            form-action 'self';
-            base-uri 'self';
-            upgrade-insecure-requests;
-        `.replace(/\s{2,}/g, ' ').trim()
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        img-src 'self' blob: data: https: http:;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' https://*.googleapis.com https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com wss://*.googleapis.com https://*.firebaseio.com https://*.firebase.com wss://*.firebaseio.com https://va.vercel-scripts.com;
+        frame-ancestors 'none';
+        form-action 'self';
+        base-uri 'self';
+        upgrade-insecure-requests;
+    `.replace(/\s{2,}/g, ' ').trim()
         : ''; // Skip CSP in development for easier debugging
 
     if (cspHeader) {

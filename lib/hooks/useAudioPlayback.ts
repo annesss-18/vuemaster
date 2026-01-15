@@ -17,20 +17,52 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     const [isPlaying, setIsPlaying] = useState(false);
 
     const audioContextRef = useRef<AudioContext | null>(null);
-    const nextStartTimeRef = useRef<number>(0);
+    const audioQueueRef = useRef<{ buffer: AudioBuffer, timestamp: number }[]>([]);
+    const playbackStartTimeRef = useRef<number | null>(null);
     const isActiveRef = useRef(false);
 
     const getAudioContext = useCallback(() => {
         if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-            // Do not force sample rate - let browser/OS decide (usually 44.1 or 48kHz)
-            // The buffer itself will specify 24kHz, and Web Audio API handles resampling
-            audioContextRef.current = new AudioContext();
+            // Get the system sample rate
+            const tempCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const systemSampleRate = tempCtx.sampleRate;
+            tempCtx.close();
+
+            // Create context at system rate - we'll resample on decode
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
         // Resume if suspended (browser autoplay policy)
         if (audioContextRef.current.state === 'suspended') {
             audioContextRef.current.resume();
         }
         return audioContextRef.current;
+    }, []);
+
+    const playNextInQueue = useCallback(() => {
+        const ctx = audioContextRef.current;
+        if (!ctx || audioQueueRef.current.length === 0) return;
+
+        const { buffer } = audioQueueRef.current.shift()!;
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+
+        // Schedule based on previous end time to ensure gapless where possible
+        // If we fell behind (underrun), play immediately
+        const startTime = Math.max(playbackStartTimeRef.current ?? ctx.currentTime, ctx.currentTime);
+        source.start(startTime);
+        playbackStartTimeRef.current = startTime + buffer.duration;
+
+        setIsPlaying(true);
+
+        source.onended = () => {
+            if (audioQueueRef.current.length > 0) {
+                playNextInQueue();
+            } else {
+                playbackStartTimeRef.current = null;
+                setIsPlaying(false);
+            }
+        };
     }, []);
 
     const queueAudio = useCallback((base64Data: string) => {
@@ -57,39 +89,41 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
                 float32Array[i] = int16 / 32768.0;
             }
 
-            // Create AudioBuffer at 24kHz
-            const audioBuffer = ctx.createBuffer(1, float32Array.length, 24000);
-            audioBuffer.getChannelData(0).set(float32Array);
+            // Resample from 24kHz to system sample rate if needed
+            const incomingSampleRate = 24000;
+            const systemSampleRate = ctx.sampleRate;
+            let finalSamples: Float32Array = float32Array;
 
-            // Create source and connect to output
-            const source = ctx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(ctx.destination);
+            if (incomingSampleRate !== systemSampleRate) {
+                finalSamples = resampleAudio(float32Array, incomingSampleRate, systemSampleRate);
+            }
 
-            // Schedule playback for seamless audio
-            const currentTime = ctx.currentTime;
-            const startTime = Math.max(currentTime, nextStartTimeRef.current);
-            source.start(startTime);
-            nextStartTimeRef.current = startTime + audioBuffer.duration;
+            // Create AudioBuffer at system sample rate
+            const audioBuffer = ctx.createBuffer(1, finalSamples.length, systemSampleRate);
+            audioBuffer.getChannelData(0).set(finalSamples);
 
-            setIsPlaying(true);
+            // Queue the buffer instead of playing immediately
+            audioQueueRef.current.push({
+                buffer: audioBuffer,
+                timestamp: Date.now(),
+            });
 
-            // Track when audio ends
-            source.onended = () => {
-                // Check if this was the last scheduled audio
-                if (ctx.currentTime >= nextStartTimeRef.current - 0.1) {
-                    setIsPlaying(false);
-                }
-            };
+            // Start playback if not already running and we have enough chunks (jitter buffer)
+            // or if we have just 1 chunk but haven't played anything yet? 
+            // Diagnosis said: "if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2)"
+            if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2) {
+                playNextInQueue();
+            }
 
         } catch (error) {
             console.error('Error playing audio:', error);
         }
-    }, [getAudioContext]);
+    }, [getAudioContext, playNextInQueue]);
 
     const clearQueue = useCallback(() => {
         isActiveRef.current = false;
-        nextStartTimeRef.current = 0;
+        playbackStartTimeRef.current = null;
+        audioQueueRef.current = [];
         setIsPlaying(false);
 
         // Close and recreate context to stop all scheduled audio
@@ -109,4 +143,26 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
         clearQueue,
         stop,
     };
+}
+
+// Helper function for resampling
+function resampleAudio(input: Float32Array, inRate: number, outRate: number): Float32Array {
+    if (inRate === outRate) return input;
+
+    const ratio = inRate / outRate;
+    const outputLength = Math.ceil(input.length / ratio);
+    const output = new Float32Array(outputLength);
+
+    for (let i = 0; i < outputLength; i++) {
+        const srcIndex = i * ratio;
+        const srcIndexFloor = Math.floor(srcIndex);
+        const srcIndexCeil = Math.min(srcIndexFloor + 1, input.length - 1);
+        const fraction = srcIndex - srcIndexFloor;
+
+        const sample1 = input[srcIndexFloor] ?? 0;
+        const sample2 = input[srcIndexCeil] ?? 0;
+        output[i] = sample1 + (sample2 - sample1) * fraction;
+    }
+
+    return output;
 }

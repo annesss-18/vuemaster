@@ -40,6 +40,12 @@ export function useAudioCapture(): UseAudioCaptureReturn {
                 await audioContextRef.current.resume();
             }
 
+            while (audioContextRef.current.state !== 'running') {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            const nativeSampleRate = audioContextRef.current.sampleRate;
+            console.log(`AudioContext running at ${nativeSampleRate}Hz`);
             // Load audio worklet module
             try {
                 await audioContextRef.current.audioWorklet.addModule('/worklets/audio-processor.js');
@@ -47,7 +53,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
                 throw new Error('Failed to load audio worklet. Please ensure the file exists in public/worklets/');
             }
 
-            const nativeSampleRate = audioContextRef.current.sampleRate;
+
 
             // Request microphone access
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -57,6 +63,15 @@ export function useAudioCapture(): UseAudioCaptureReturn {
                     noiseSuppression: true,
                     autoGainControl: true,
                 },
+            }).catch(err => {
+                if (err.name === 'NotAllowedError') {
+                    throw new Error('Microphone access denied. Please check your browser permissions and try again.');
+                } else if (err.name === 'NotFoundError') {
+                    throw new Error('No microphone found. Please connect a microphone and try again.');
+                } else if (err.name === 'NotReadableError') {
+                    throw new Error('Microphone is in use by another application. Please close other apps and try again.');
+                }
+                throw err;
             });
 
             mediaStreamRef.current = stream;
@@ -72,11 +87,14 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
                 const inputData = event.data as Float32Array;
 
-                // Simple silence detection for debugging
-                const isSilent = inputData.every(s => s === 0);
-                if (isSilent) {
-                    // console.warn('Silence detected in input buffer');
-                }
+                // Basic validation
+                if (!inputData || inputData.length === 0) return;
+
+                // Better silence detection using RMS (Root Mean Square) for debugging
+                // const rms = Math.sqrt(inputData.reduce((sum, s) => sum + s * s, 0) / inputData.length);
+                // if (rms < 0.001) {
+                //      console.debug('Low audio level detected');
+                // }
 
                 // Resample to 16kHz if necessary
                 const targetSampleRate = 16000;
@@ -100,9 +118,14 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
             // Connect the nodes
             sourceRef.current.connect(processorRef.current);
-            // Connect to destination if you want to hear it, otherwise just connecting ensures it runs
-            // Note: Some browsers might require connecting to destination for the graph to run consistently
-            // processorRef.current.connect(audioContextRef.current.destination);
+            
+            // Ensure audio is actually flowing by monitoring the processor
+            // Some browsers require the destination to be active. 
+            // We use a silent gain node to keep the graph active without feedback.
+            const gainNode = audioContextRef.current.createGain();
+            gainNode.gain.value = 0; // Silent output but keeps graph active
+            processorRef.current.connect(gainNode);
+            gainNode.connect(audioContextRef.current.destination);
 
             setIsCapturing(true);
             console.log(`Audio capture started at ${nativeSampleRate}Hz using AudioWorklet`);
