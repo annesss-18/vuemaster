@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { RouteParams } from '@/types';
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 import CompanyLogo from "@/components/CompanyLogo";
-// import { InterviewAgent } from "@/components/InterviewAgent"; // REMOVED
+import { LiveInterviewAgent } from "@/components/LiveInterviewAgent";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { Briefcase, TrendingUp, Sparkles, Clock, Target, AlertCircle } from "lucide-react";
 import Link from "next/link";
@@ -160,27 +160,12 @@ const Page = async ({ params }: RouteParams) => {
         </div>
       </div>
 
-      {/* Interview Agent Component */}
-      <div className="animate-slideInLeft" style={{ animationDelay: '0.2s' }}>
-        <div className="card-border">
-          <div className="card !p-12 text-center space-y-6">
-            <div className="size-24 rounded-full bg-primary-500/10 border-2 border-primary-500/30 flex items-center justify-center mx-auto">
-              <Sparkles className="size-12 text-primary-300" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-light-100">Live Interview Feature Disabled</h2>
-              <p className="text-light-300">The live audio interview feature is currently unavailable.</p>
-            </div>
-            <Link
-              href="/interview"
-              className="btn-primary inline-flex items-center gap-2"
-            >
-              <Sparkles className="size-5" />
-              <span>Return to Dashboard</span>
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* Live Interview Agent Component */}
+      <LiveInterviewAgent
+        interview={interview}
+        sessionId={sessionId}
+        userId={user?.id || ''}
+      />
     </div>
   );
 }
