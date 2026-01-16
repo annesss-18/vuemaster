@@ -108,10 +108,12 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
                 timestamp: Date.now(),
             });
 
-            // Start playback if not already running and we have enough chunks (jitter buffer)
-            // or if we have just 1 chunk but haven't played anything yet? 
-            // Diagnosis said: "if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2)"
-            if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2) {
+            console.log('🔊 Audio queued, queue size:', audioQueueRef.current.length, 'isPlaying:', !!playbackStartTimeRef.current);
+
+            // Start playback immediately with first chunk - don't wait for 2 chunks
+            // This prevents silence when Gemini sends audio slowly
+            if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 1) {
+                console.log('▶️ Starting audio playback...');
                 playNextInQueue();
             }
 

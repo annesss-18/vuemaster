@@ -45,6 +45,7 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
         connect,
         disconnect,
         sendAudio,
+        sendInitialPrompt,
         onAudioReceived,
     } = useLiveInterview({
         sessionId,
@@ -71,7 +72,9 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
 
     // Set up audio playback callback
     useEffect(() => {
+        console.log('🎧 Registering audio playback callback');
         onAudioReceived((base64Data) => {
+            console.log('🎵 Audio callback triggered, forwarding to playback');
             queueAudio(base64Data);
         });
     }, [onAudioReceived, queueAudio]);
@@ -89,7 +92,9 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
             setPhase('active');
 
             // Register callback
+            console.log('🎧 Registering audio callback in handleStartInterview');
             onAudioReceived((base64Data) => {
+                console.log('🎵 Audio received, length:', base64Data.length);
                 queueAudio(base64Data);
             });
 
@@ -97,6 +102,7 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
             await startCapture(handleAudioChunk);
 
             // Connect to Live API
+            // Note: Initial prompt is sent automatically in the onopen callback
             await connect();
 
         } catch (error) {

@@ -30,6 +30,7 @@ interface UseLiveInterviewReturn {
     connect: () => Promise<void>;
     disconnect: () => void;
     sendAudio: (base64Data: string) => void;
+    sendInitialPrompt: () => void;
     onAudioReceived: (callback: (base64Data: string) => void) => void;
 }
 
@@ -57,6 +58,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     const currentTranscriptRef = useRef<string>('');
     const reconnectionAttemptsRef = useRef(0);
     const isIntentionalDisconnectRef = useRef(false);
+    const isConnectedRef = useRef(false); // Synchronous connection status tracking
 
     // Timer effect
     useEffect(() => {
@@ -78,6 +80,35 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         };
     }, [status]);
 
+    // Send initial prompt when connection is established
+    // This is in a useEffect because we need sessionRef.current to be set first
+    const hasInitialPromptSentRef = useRef(false);
+    useEffect(() => {
+        if (status === 'connected' && sessionRef.current && !hasInitialPromptSentRef.current) {
+            hasInitialPromptSentRef.current = true;
+            console.log('📤 Sending initial prompt to start interview...');
+            try {
+                sessionRef.current.sendClientContent({
+                    turns: [
+                        {
+                            role: 'user',
+                            parts: [{ text: 'Hello, I am ready to begin the interview. Please introduce yourself and start the interview.' }],
+                        },
+                    ],
+                    turnComplete: true,
+                });
+                console.log('✅ Initial prompt sent successfully');
+            } catch (err) {
+                console.error('Failed to send initial prompt:', err);
+            }
+        }
+
+        // Reset the flag when disconnected so prompt can be sent again on reconnect
+        if (status === 'disconnected' || status === 'idle') {
+            hasInitialPromptSentRef.current = false;
+        }
+    }, [status]);
+
     const handleMessage = useCallback((message: LiveServerMessage) => {
         // Handle interruption
         if (message.serverContent?.interrupted) {
@@ -94,7 +125,12 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             for (const part of message.serverContent.modelTurn.parts) {
                 // Audio data
                 if (part.inlineData?.data) {
-                    audioCallbackRef.current?.(part.inlineData.data);
+                    console.log('📢 Received audio chunk from Gemini, length:', part.inlineData.data.length);
+                    if (audioCallbackRef.current) {
+                        audioCallbackRef.current(part.inlineData.data);
+                    } else {
+                        console.warn('⚠️ No audio callback registered!');
+                    }
                 }
 
                 // Text transcript of model output
@@ -192,22 +228,25 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                 callbacks: {
                     onopen: () => {
                         console.log('Live API connection established');
+                        isConnectedRef.current = true;
                         setStatus('connected');
-                        reconnectionAttemptsRef.current = 0; // Reset on success
+                        reconnectionAttemptsRef.current = 0;
                     },
                     onmessage: (message: LiveServerMessage) => {
                         handleMessage(message);
                     },
                     onerror: (e: ErrorEvent) => {
                         console.error('Live API error:', e);
+                        isConnectedRef.current = false;
                         setError(e.message || 'Unknown WebSocket error');
                         setStatus('error');
                     },
                     onclose: (e: CloseEvent) => {
                         console.log('Live API connection closed:', e.reason);
+                        isConnectedRef.current = false;
                         if (!isIntentionalDisconnectRef.current) {
                             setStatus('disconnected');
-                            reconnect(); // Attempt to reconnect
+                            reconnect();
                         } else {
                             setStatus('disconnected');
                         }
@@ -254,6 +293,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
 
     const disconnect = useCallback(() => {
         isIntentionalDisconnectRef.current = true;
+        isConnectedRef.current = false;
         if (sessionRef.current) {
             sessionRef.current.close();
             sessionRef.current = null;
@@ -263,12 +303,13 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
 
     const sendAudio = useCallback((base64Data: string) => {
         if (!sessionRef.current) {
-            // console.warn('Session not available, audio not sent');
+            // Session not available, this is normal during initial connection
             return;
         }
 
-        if (status !== 'connected') {
-            // console.warn('Not connected, audio not sent. Status:', status);
+        // Use ref for synchronous status check (state updates are async)
+        if (!isConnectedRef.current) {
+            // Not connected yet, silently skip
             return;
         }
 
@@ -281,9 +322,32 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             });
         } catch (error) {
             console.error('Failed to send audio chunk:', error);
-            // Consider reconnecting checks here if consistently failing
         }
-    }, [status]);
+    }, []);
+
+    // Send an initial text prompt to trigger the AI to start speaking
+    // Note: This is now called automatically in the onopen callback
+    const sendInitialPrompt = useCallback(() => {
+        if (!sessionRef.current || !isConnectedRef.current) {
+            console.warn('⚠️ Cannot send prompt: not connected');
+            return;
+        }
+
+        try {
+            console.log('📤 Sending prompt...');
+            sessionRef.current.sendClientContent({
+                turns: [
+                    {
+                        role: 'user',
+                        parts: [{ text: 'Hello, I am ready to begin the interview. Please introduce yourself and start the interview.' }],
+                    },
+                ],
+                turnComplete: true,
+            });
+        } catch (error) {
+            console.error('Failed to send prompt:', error);
+        }
+    }, []);
 
     const onAudioReceived = useCallback((callback: (base64Data: string) => void) => {
         audioCallbackRef.current = callback;
@@ -305,6 +369,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         connect,
         disconnect,
         sendAudio,
+        sendInitialPrompt,
         onAudioReceived,
     };
 }
