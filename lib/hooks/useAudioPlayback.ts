@@ -110,9 +110,9 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
 
             console.log('🔊 Audio queued, queue size:', audioQueueRef.current.length, 'isPlaying:', !!playbackStartTimeRef.current);
 
-            // Start playback immediately with first chunk - don't wait for 2 chunks
-            // This prevents silence when Gemini sends audio slowly
-            if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 1) {
+            // Start playback when we have 2 chunks buffered for smoother audio
+            // Single chunk can cause choppy playback
+            if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2) {
                 console.log('▶️ Starting audio playback...');
                 playNextInQueue();
             }

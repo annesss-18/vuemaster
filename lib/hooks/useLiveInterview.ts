@@ -55,7 +55,9 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     const sessionRef = useRef<Session | null>(null);
     const audioCallbackRef = useRef<((base64Data: string) => void) | null>(null);
     const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const currentTranscriptRef = useRef<string>('');
+    const currentTranscriptRef = useRef<string>('');  // Accumulates AI model text
+    const userTranscriptRef = useRef<string>('');     // Accumulates user speech text
+    const userTranscriptTimeoutRef = useRef<NodeJS.Timeout | null>(null);  // Debounce for user transcript
     const reconnectionAttemptsRef = useRef(0);
     const isIntentionalDisconnectRef = useRef(false);
     const isConnectedRef = useRef(false); // Synchronous connection status tracking
@@ -154,15 +156,31 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             }
         }
 
-        // Handle input transcription
+        // Handle input transcription (user speech)
+        // Accumulate words and debounce to create complete sentences
         if (message.serverContent?.inputTranscription) {
             const userText = message.serverContent.inputTranscription.text;
             if (userText) {
-                setTranscript(prev => [...prev, {
-                    role: 'user',
-                    content: userText,
-                    timestamp: Date.now(),
-                }]);
+                // Accumulate the text
+                userTranscriptRef.current += userText;
+                
+                // Clear any existing timeout
+                if (userTranscriptTimeoutRef.current) {
+                    clearTimeout(userTranscriptTimeoutRef.current);
+                }
+                
+                // Set a debounce timeout - add to transcript after 1.5 seconds of silence
+                userTranscriptTimeoutRef.current = setTimeout(() => {
+                    const accumulatedText = userTranscriptRef.current.trim();
+                    if (accumulatedText) {
+                        setTranscript(prev => [...prev, {
+                            role: 'user',
+                            content: accumulatedText,
+                            timestamp: Date.now(),
+                        }]);
+                        userTranscriptRef.current = '';
+                    }
+                }, 1500);
             }
         }
 
