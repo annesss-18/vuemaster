@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useLiveInterview, TranscriptEntry } from '@/lib/hooks/useLiveInterview';
 import { useAudioCapture } from '@/lib/hooks/useAudioCapture';
 import { useAudioPlayback } from '@/lib/hooks/useAudioPlayback';
+import { ResumeUploader } from '@/components/ResumeUploader';
 import { Mic, MicOff, Phone, PhoneOff, Loader2, AlertCircle, Sparkles, Clock, User, Bot } from 'lucide-react';
 import type { Interview } from '@/types';
 
@@ -23,17 +24,19 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
     const [phase, setPhase] = useState<InterviewPhase>('setup');
     const [isMuted, setIsMuted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [resumeText, setResumeText] = useState<string | undefined>(interview.resumeText);
+    const [isUpdatingSession, setIsUpdatingSession] = useState(false);
 
-    // Interview context for the AI
-    const interviewContext = {
+    // Interview context for the AI - includes uploaded resume
+    const interviewContext = useMemo(() => ({
         role: interview.role,
         companyName: interview.companyName,
         level: interview.level,
         type: interview.type,
         techStack: interview.techstack,
         questions: interview.questions,
-        resumeText: interview.resumeText,
-    };
+        resumeText: resumeText,
+    }), [interview, resumeText]);
 
     // Initialize hooks
     const {
@@ -85,6 +88,46 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
             sendAudio(chunk);
         }
     }, [sendAudio, isMuted]);
+
+    // Handle resume upload
+    const handleResumeUploaded = useCallback(async (text: string) => {
+        setResumeText(text);
+        setIsUpdatingSession(true);
+
+        try {
+            // Update session with resume text
+            const response = await fetch(`/api/interview/session/${sessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resumeText: text }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to save resume');
+            }
+        } catch (error) {
+            console.error('Failed to update session with resume:', error);
+            // Don't show error toast - resume is still usable locally
+        } finally {
+            setIsUpdatingSession(false);
+        }
+    }, [sessionId]);
+
+    // Handle resume clear
+    const handleResumeClear = useCallback(async () => {
+        setResumeText(undefined);
+
+        try {
+            await fetch(`/api/interview/session/${sessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resumeText: '' }),
+            });
+        } catch (error) {
+            console.error('Failed to clear resume from session:', error);
+        }
+    }, [sessionId]);
 
     // Start interview
     const handleStartInterview = async () => {
@@ -210,7 +253,7 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
         );
     }
 
-    // Setup phase - Start button
+    // Setup phase - Start button with resume upload
     if (phase === 'setup') {
         return (
             <div className="card-border animate-slideInLeft" style={{ animationDelay: '0.2s' }}>
@@ -228,20 +271,35 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
                         <div className="space-y-3 max-w-md">
                             <h3 className="text-2xl font-bold text-light-100">Ready to Start</h3>
                             <p className="text-light-300">
-                                Click the button below to begin your live interview. Make sure your microphone is enabled and you're in a quiet environment.
+                                Upload your resume for a personalized interview, then click start when ready. Make sure your microphone is enabled.
                             </p>
                         </div>
+
+                        {/* Resume Upload Section */}
+                        <ResumeUploader
+                            onResumeUploaded={handleResumeUploaded}
+                            onResumeClear={handleResumeClear}
+                            initialResumeText={interview.resumeText}
+                        />
 
                         <div className="flex flex-col items-center gap-4">
                             <button
                                 onClick={handleStartInterview}
-                                className="btn-primary text-lg px-8 py-4 group"
+                                disabled={isUpdatingSession}
+                                className="btn-primary text-lg px-8 py-4 group disabled:opacity-50"
                             >
-                                <Phone className="size-5" />
-                                <span className="font-semibold">Start Live Interview</span>
+                                {isUpdatingSession ? (
+                                    <Loader2 className="size-5 animate-spin" />
+                                ) : (
+                                    <Phone className="size-5" />
+                                )}
+                                <span className="font-semibold">
+                                    {resumeText ? 'Start Personalized Interview' : 'Start Live Interview'}
+                                </span>
                             </button>
                             <p className="text-xs text-light-400">
                                 Session duration: up to 15 minutes
+                                {resumeText && ' • Resume attached'}
                             </p>
                         </div>
                     </div>

@@ -128,3 +128,29 @@ export async function isAuthenticated() {
     return !!user;
 }
 
+export async function googleAuthenticate(params: { uid: string, email: string, name: string, idToken: string }) {
+    const { uid, email, name, idToken } = params;
+
+    try {
+        const userRecord = await db.collection('users').doc(uid).get();
+        if (!userRecord.exists) {
+            await db.collection('users').doc(uid).set({
+                name, email
+            });
+        }
+
+        await setSessionCookie(idToken);
+
+        return {
+            success: true,
+            message: 'Signed in successfully'
+        };
+    } catch (e: unknown) {
+        logger.error('Error authenticating with Google:', e);
+        return {
+            success: false,
+            message: 'Failed to authenticate with Google'
+        }
+    }
+}
+

@@ -163,12 +163,12 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             if (userText) {
                 // Accumulate the text
                 userTranscriptRef.current += userText;
-                
+
                 // Clear any existing timeout
                 if (userTranscriptTimeoutRef.current) {
                     clearTimeout(userTranscriptTimeoutRef.current);
                 }
-                
+
                 // Set a debounce timeout - add to transcript after 1.5 seconds of silence
                 userTranscriptTimeoutRef.current = setTimeout(() => {
                     const accumulatedText = userTranscriptRef.current.trim();
@@ -241,7 +241,10 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             const session = await ai.live.connect({
                 model: model,
                 config: {
-                    responseModalities: [Modality.AUDIO],
+                    responseModalities: [Modality.AUDIO, Modality.TEXT],
+                    speechConfig: {
+                        languageCode: 'en-US',
+                    },
                 },
                 callbacks: {
                     onopen: () => {

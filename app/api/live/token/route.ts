@@ -47,13 +47,9 @@ export const POST = withAuth(async (req: NextRequest, user: User) => {
                                 },
                             },
                         },
-                        // Force English language for transcription
-                        inputAudioTranscription: {
-                            languageCode: 'en-US',
-                        },
-                        outputAudioTranscription: {
-                            languageCode: 'en-US',
-                        },
+                        // Enable audio transcription (language is controlled via system instruction)
+                        inputAudioTranscription: {},
+                        outputAudioTranscription: {},
                     },
                 },
                 httpOptions: {

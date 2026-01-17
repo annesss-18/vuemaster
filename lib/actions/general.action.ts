@@ -530,6 +530,18 @@ Please score the candidate from 0 to 100 in the following areas. Do not add cate
 
         logger.info(`✅ Feedback created successfully: ${feedbackDoc.id}`);
 
+        // Update session with final score
+        try {
+            await db.collection('interview_sessions').doc(interviewId).update({
+                finalScore: validatedFeedback.totalScore,
+                feedbackId: feedbackDoc.id,
+            });
+            logger.info(`✅ Session ${interviewId} updated with finalScore: ${validatedFeedback.totalScore}`);
+        } catch (updateError) {
+            logger.error(`Failed to update session with score:`, updateError);
+            // Don't fail the whole operation if this update fails
+        }
+
         return {
             success: true,
             feedbackId: feedbackDoc.id,

@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Next.js Middleware for global request handling
+ * Next.js Proxy for global request handling
  * 
- * This middleware runs on every request and can be used for:
+ * This proxy runs on every request and can be used for:
  * - Rate limiting at the edge
  * - Bot detection
  * - Geolocation-based routing
@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
  * 
  * Note: Authentication is handled via cookies in server components/actions.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const response = NextResponse.next();
 
     // Add request ID for tracing (useful for debugging)
@@ -47,7 +47,7 @@ export function middleware(request: NextRequest) {
     return response;
 }
 
-// Configure which routes the middleware runs on
+// Configure which routes the proxy runs on
 export const config = {
     matcher: [
         /*
