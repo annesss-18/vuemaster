@@ -35,6 +35,8 @@ yarn-error.log*
 .env
 .env.*
 !.env.example
+.env.production
+.env.test
 
 # Vercel
 .vercel
@@ -42,6 +44,11 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+junit.xml
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
 
 # Editors
 .idea

@@ -83,10 +83,8 @@ Visit `http://localhost:3000` to see the application.
 ```
 vuemaster/
 ├── app/                      # Next.js App Router
-│   ├── (auth)/               # Authentication pages
-│   │   ├── sign-in/
-│   │   └── sign-up/
-│   ├── (root)/               # Protected application routes
+│   ├── (auth)/               # Authentication routes (sign-in, sign-up)
+│   ├── (root)/               # Main application routes
 │   │   ├── dashboard/        # User dashboard
 │   │   ├── create/           # Create interview template
 │   │   ├── explore/          # Browse public templates
@@ -94,30 +92,25 @@ vuemaster/
 │   ├── api/                  # API Routes
 │   │   ├── auth/             # Authentication endpoints
 │   │   ├── feedback/         # AI feedback generation
-│   │   └── interview/        # Interview CRUD operations
-│   └── layout.tsx            # Root layout with providers
+│   │   └── interview/        # Interview management (analyze, generate, etc.)
+│   └── layout.tsx            # Root layout
 ├── components/               # React components
 │   ├── ui/                   # ShadCN UI primitives
 │   └── *.tsx                 # Application components
 ├── lib/                      # Utilities and configurations
-│   ├── actions/              # Server Actions
-│   ├── api-middleware.ts     # Auth & rate limiting middleware
-│   └── *.ts                  # Utility functions
 ├── firebase/                 # Firebase configuration
-│   ├── admin.ts              # Server-side SDK
-│   └── client.ts             # Client-side SDK
 ├── types/                    # TypeScript definitions
-└── middleware.ts             # Next.js Edge Middleware
+└── middleware.ts             # Next.js Middleware
 ```
 
 ### Data Model
 
-| Collection | Purpose |
-|------------|---------|
-| `users` | User profiles (name, email) |
-| `interview_templates` | Reusable interview configurations |
-| `interview_sessions` | User practice sessions |
-| `feedback` | AI-generated interview feedback |
+| Interface | Purpose |
+|-----------|---------|
+| `InterviewTemplate` | Defines the structure of an interview (role, tech stack, questions) |
+| `InterviewSession` | Tracks a user's practice session instance |
+| `Feedback` | Stores AI-generated feedback and scores |
+| `User` | Basic user profile information |
 
 ## Deployment
 
@@ -133,9 +126,10 @@ vuemaster/
 
 All required environment variables are documented in [`.env.example`](.env.example). Make sure to configure:
 
-- Firebase Client SDK credentials (public)
-- Firebase Admin SDK credentials (private)
-- Google AI API key
+- **Firebase Public Config**: API Key, Auth Domain, Project ID, etc.
+- **Firebase Admin Config**: Private Key, Client Email, Project ID (Server-side only).
+- **AI Configuration**: Google Gemini API Key.
+- **App Configuration**: `NEXT_PUBLIC_APP_URL` (Required for absolute URL generation).
 
 ### Firebase Setup
 
@@ -143,7 +137,10 @@ All required environment variables are documented in [`.env.example`](.env.examp
 2. Enable **Authentication** with Email/Password provider
 3. Create a **Firestore** database in production mode
 4. Deploy security rules: `firebase deploy --only firestore:rules`
-5. Generate a service account key for Admin SDK
+5. Generate a service account key for Admin SDK:
+   - Go to Project Settings > Service accounts
+   - Click "Generate new private key"
+   - Use the values in the JSON file to populate `.env.local`
 
 ## API Reference
 
