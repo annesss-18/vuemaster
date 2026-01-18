@@ -43,6 +43,7 @@ export interface InterviewTemplate {
   // Content
   jobDescription: string;
   baseQuestions: string[];
+  systemInstruction?: string;
 
   // Metadata
   usageCount: number;
@@ -119,6 +120,7 @@ export interface Interview {
   resumeText?: string;
   status?: string;
   focusArea?: string[];
+  systemInstruction?: string;
 }
 
 // API Types

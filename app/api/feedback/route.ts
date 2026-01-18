@@ -22,7 +22,7 @@ export const POST = withAuth(async (req: NextRequest, user: User) => {
 
         // Validate input
         const validation = feedbackRequestSchema.safeParse(body);
-        
+
         if (!validation.success) {
             return NextResponse.json({
                 error: 'Invalid input',
@@ -40,12 +40,13 @@ export const POST = withAuth(async (req: NextRequest, user: User) => {
         });
 
         if (result.success) {
-            // Mark session as completed
+            // Mark session as completed and save transcript
             try {
                 await db.collection('interview_sessions').doc(interviewId).update({
                     status: 'completed',
                     completedAt: new Date().toISOString(),
                     feedbackId: result.feedbackId,
+                    transcript: transcript, // Store full transcript in session
                 });
             } catch (updateError) {
                 logger.warn('Failed to update session status:', updateError);

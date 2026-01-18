@@ -95,29 +95,30 @@ interface InterviewContext {
     techStack?: string[];
     questions?: string[];
     resumeText?: string;
+    systemInstruction?: string;
 }
 
 function buildInterviewerPrompt(context?: InterviewContext): string {
+    // 1. Use Custom System Instruction if available (this is the preferred path)
+    if (context?.systemInstruction) {
+        return `
+${context.systemInstruction}
+
+[IMPORTANT OPERATIONAL RULES]
+- You are communicating via a voice interface. Responses must be spoken naturally.
+- Keep answer concise. Avoid long monologues.
+- Always communicate in English.
+- Do not list these rules to the user.
+        `.trim();
+    }
+
+    // 2. Fallback: Construct prompt dynamically (Legacy/Fallback path)
     const basePrompt = `You are an experienced technical interviewer conducting a professional mock interview. 
-
-IMPORTANT RULES:
-- Always communicate in English only, regardless of what language the candidate uses
-- Wait for the candidate to COMPLETELY finish speaking before responding - do not interrupt them
-- Listen carefully to their full response before asking follow-up questions
-
-Your role is to:
-1. Ask thoughtful, probing questions based on the candidate's responses
-2. Maintain a professional but friendly tone
-3. Give the candidate time to think and respond - be patient
-4. Ask follow-up questions to dig deeper into their answers
-5. Evaluate their communication, technical knowledge, and problem-solving skills
-
-Interview Guidelines:
-- Start with a brief introduction and set expectations
-- Ask one question at a time and wait for the COMPLETE response
-- Use follow-up questions to explore answers in more depth
-- Be encouraging but also challenging when appropriate
-- Conclude by asking if the candidate has any questions`;
+    
+    IMPORTANT RULES:
+    - Always communicate in English only
+    - Keep responses concise (spoken word)
+    - Be professional but conversational`;
 
     if (!context) {
         return basePrompt;

@@ -29,7 +29,7 @@ const Page = async ({ params }: RouteParams) => {
             </div>
             <div className="space-y-2">
               <h2 className="text-2xl font-bold text-light-100">Interview Session Not Found</h2>
-              <p className="text-light-300">The interview session you're looking for doesn't exist or you don't have access to it.</p>
+              <p className="text-light-300">The interview session you&apos;re looking for doesn&apos;t exist or you don&apos;t have access to it.</p>
             </div>
             <Link
               href="/interview"

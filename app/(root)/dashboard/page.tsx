@@ -100,7 +100,7 @@ const Dashboard = async () => {
             </div>
           ) : (
             <div className="text-center p-12 border border-dashed border-light-400/20 rounded-2xl">
-              <p className="text-light-300">You haven't created any templates yet.</p>
+              <p className="text-light-300">You haven&apos;t created any templates yet.</p>
               <Link href="/create" className="btn-primary mt-4 inline-flex items-center gap-2">
                 <Plus className="size-4" />
                 Create Your First Template

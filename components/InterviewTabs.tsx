@@ -4,12 +4,27 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import InterviewCard from './InterviewCard'
-import { Library, History, Target } from 'lucide-react'
+import { Library, History } from 'lucide-react'
 import Link from 'next/link'
+import type { Feedback } from '@/types'
+
+// Interface matching the data structure returned by server actions
+interface CardDataBase {
+  id: string
+  role: string
+  type: string
+  techstack: string[]  // Server actions return lowercase
+  createdAt: string | Date
+  companyName?: string
+}
+
+interface SessionData extends CardDataBase {
+  feedback?: Feedback | null
+}
 
 interface InterviewTabsProps {
-  userSessions: any[] // Changed to any[] or use an extended type that includes 'feedback'
-  allTemplates: any[]
+  userSessions: SessionData[]
+  allTemplates: CardDataBase[]
   userId: string
 }
 

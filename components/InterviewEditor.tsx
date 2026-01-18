@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Plus, X, Save, BrainCircuit, Target } from 'lucide-react';
+import { Loader2, X, Save, BrainCircuit, Target } from 'lucide-react';
 import { Button } from './ui/button'; // Assuming you have these or use standard buttons
 
 // Match the new Draft Schema
@@ -31,7 +31,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
     const [newTech, setNewTech] = useState('');
     const [newFocus, setNewFocus] = useState('');
 
-    const handleUpdate = (field: keyof DraftData, value: any) => {
+    const handleUpdate = <K extends keyof DraftData>(field: K, value: DraftData[K]) => {
         setDraft(prev => ({ ...prev, [field]: value }));
     };
 
@@ -93,7 +93,7 @@ const InterviewEditor: React.FC<InterviewEditorProps> = ({ initialDraft }) => {
                 <div className="flex justify-between items-center border-b border-primary-400/20 pb-6">
                     <div>
                         <h2 className="text-2xl font-bold text-white">Review & Finalize</h2>
-                        <p className="text-light-300 text-sm">Verify the AI's analysis before saving.</p>
+                        <p className="text-light-300 text-sm">Verify the AI&apos;s analysis before saving.</p>
                     </div>
                     <Button onClick={handleSave} disabled={isSaving} className="btn-primary">
                         {isSaving ? <Loader2 className="animate-spin size-4 mr-2" /> : <Save className="size-4 mr-2" />}

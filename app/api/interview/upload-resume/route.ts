@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/firebase/admin';
 import { extractTextFromFile } from '@/lib/server-utils';
 import { withAuth } from '@/lib/api-middleware';
+import { logger } from '@/lib/logger';
+import type { User } from '@/types';
 
 export const runtime = 'nodejs';
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, user: User) => {
   try {
     const formData = await req.formData();
     const sessionId = formData.get('sessionId') as string || formData.get('interviewId') as string;
@@ -37,7 +39,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
     return NextResponse.json({ success: true, resumeText });
   } catch (error) {
-    console.error('Resume Upload Error:', error);
+    logger.error('Resume Upload Error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 });

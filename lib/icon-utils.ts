@@ -8,7 +8,6 @@
 // ============================================================================
 
 const BRANDFETCH_CDN = "https://cdn.brandfetch.io";
-const GOOGLE_FAVICON_API = "https://www.google.com/s2/favicons";
 const UI_AVATARS_API = "https://ui-avatars.com/api";
 const DEVICON_CDN = "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons";
 const SIMPLE_ICONS_CDN = "https://cdn.simpleicons.org";

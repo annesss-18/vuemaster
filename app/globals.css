@@ -593,6 +593,13 @@
   .section-spacing-sm {
     @apply py-8 md:py-12 lg:py-16;
   }
+
+  /* ===== LIVE INTERVIEW SUBTITLE ===== */
+
+  .subtitle-container {
+    @apply px-5 py-4 rounded-xl border backdrop-blur-md;
+    transition: all 200ms ease-out;
+  }
 }
 
 /* ============================================

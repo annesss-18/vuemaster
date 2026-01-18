@@ -27,6 +27,9 @@ interface UseLiveInterviewReturn {
     error: string | null;
     transcript: TranscriptEntry[];
     isAIResponding: boolean;
+    isUserSpeaking: boolean;
+    currentCaption: string;
+    currentSpeaker: 'user' | 'model' | null;
     elapsedTime: number;
     connect: () => Promise<void>;
     disconnect: () => void;
@@ -52,6 +55,10 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
     const [isAIResponding, setIsAIResponding] = useState(false);
     const [elapsedTime, setElapsedTime] = useState(0);
+    // Current caption for subtitle display (last spoken text)
+    const [currentCaption, setCurrentCaption] = useState<string>('');
+    const [currentSpeaker, setCurrentSpeaker] = useState<'user' | 'model' | null>(null);
+    const [isUserSpeaking, setIsUserSpeaking] = useState(false);
 
     const sessionRef = useRef<Session | null>(null);
     const audioCallbackRef = useRef<((base64Data: string) => void) | null>(null);
@@ -116,6 +123,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         // Handle interruption
         if (message.serverContent?.interrupted) {
             setIsAIResponding(false);
+            setCurrentSpeaker(null);
             currentTranscriptRef.current = '';
             onInterruption?.();
             return;
@@ -124,6 +132,8 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         // Handle model turn (audio response)
         if (message.serverContent?.modelTurn?.parts) {
             setIsAIResponding(true);
+            setCurrentSpeaker('model');
+            setIsUserSpeaking(false);
 
             for (const part of message.serverContent.modelTurn.parts) {
                 // Audio data
@@ -136,7 +146,8 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                     }
                 }
 
-                // Text transcript of model output
+                // Text from modelTurn is internal thinking - store for transcript but don't display
+                // The actual spoken text comes via outputTranscription
                 if (part.text) {
                     currentTranscriptRef.current += part.text;
                 }
@@ -147,14 +158,14 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         if (message.serverContent?.turnComplete) {
             setIsAIResponding(false);
 
-            if (currentTranscriptRef.current) {
-                setTranscript(prev => [...prev, {
-                    role: 'model',
-                    content: currentTranscriptRef.current,
-                    timestamp: Date.now(),
-                }]);
-                currentTranscriptRef.current = '';
-            }
+            // Clear internal thinking buffer (not used for display)
+            currentTranscriptRef.current = '';
+
+            // Clear caption after a brief delay if not interrupted by user
+            setTimeout(() => {
+                setCurrentCaption('');
+                setCurrentSpeaker(null);
+            }, 2000);
         }
 
         // Handle input transcription (user speech)
@@ -162,8 +173,15 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         if (message.serverContent?.inputTranscription) {
             const userText = message.serverContent.inputTranscription.text;
             if (userText) {
+                // Set user as current speaker
+                setCurrentSpeaker('user');
+                setIsUserSpeaking(true);
+
                 // Accumulate the text
                 userTranscriptRef.current += userText;
+
+                // Update caption with current user speech
+                setCurrentCaption(userTranscriptRef.current.trim());
 
                 // Clear any existing timeout
                 if (userTranscriptTimeoutRef.current) {
@@ -181,14 +199,23 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                         }]);
                         userTranscriptRef.current = '';
                     }
+                    // Clear user speaking state after debounce
+                    setIsUserSpeaking(false);
+                    setCurrentSpeaker(null);
                 }, 1500);
             }
         }
 
-        // Handle output transcription (alternative way to get model text)
+        // Handle output transcription (actual spoken text from the model)
+        // This is what was actually spoken, not internal thinking
         if (message.serverContent?.outputTranscription) {
             const modelText = message.serverContent.outputTranscription.text;
-            if (modelText && !currentTranscriptRef.current) {
+            if (modelText) {
+                // Update caption with actual spoken text
+                setCurrentCaption(prev => prev + modelText);
+                setCurrentSpeaker('model');
+
+                // Also update transcript
                 setTranscript(prev => {
                     // Update last model entry if exists
                     const lastEntry = prev[prev.length - 1];
@@ -387,6 +414,9 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         error,
         transcript,
         isAIResponding,
+        isUserSpeaking,
+        currentCaption,
+        currentSpeaker,
         elapsedTime,
         connect,
         disconnect,

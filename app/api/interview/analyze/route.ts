@@ -19,7 +19,7 @@ const analysisSchema = z.object({
     cleanedJd: z.string().describe("Pure job description without navigation/footer/ads"),
 });
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, _user) => {
     try {
         const formData = await req.formData();
         const jdType = formData.get('jdType') as string;

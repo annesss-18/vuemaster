@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 import CompanyLogo from "@/components/CompanyLogo";
 import StartSessionButton from "@/components/StartSessionButton";
-import { Briefcase, Clock, Target, ArrowLeft } from "lucide-react";
+import { Briefcase, Target, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const TemplatePage = async ({ params }: { params: Promise<{ templateId: string }> }) => {

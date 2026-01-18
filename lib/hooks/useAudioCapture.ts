@@ -86,32 +86,16 @@ export function useAudioCapture(): UseAudioCaptureReturn {
             processorRef.current.port.onmessage = (event) => {
                 if (!callbackRef.current) return;
 
-                const inputData = event.data as Float32Array;
+                const inputData = event.data as Int16Array;
 
                 // Basic validation
                 if (!inputData || inputData.length === 0) return;
 
-                // Better silence detection using RMS (Root Mean Square) for debugging
-                // const rms = Math.sqrt(inputData.reduce((sum, s) => sum + s * s, 0) / inputData.length);
-                // if (rms < 0.001) {
-                //      console.debug('Low audio level detected');
-                // }
-
-                // Resample to 16kHz if necessary
-                const targetSampleRate = 16000;
-                let samples: Float32Array;
-
-                if (nativeSampleRate !== targetSampleRate) {
-                    samples = resample(inputData, nativeSampleRate, targetSampleRate);
-                } else {
-                    samples = inputData;
-                }
-
-                // Convert Float32 to 16-bit PCM (little-endian)
-                const pcmData = float32ToPCM16(samples);
-
                 // Convert to base64
-                const base64 = uint8ArrayToBase64(new Uint8Array(pcmData.buffer));
+                // We can treat Int16Array buffer directly as bytes
+                const base64 = typeof Buffer !== 'undefined'
+                    ? Buffer.from(inputData.buffer).toString('base64')
+                    : uint8ArrayToBase64(new Uint8Array(inputData.buffer));
 
                 // Send chunk
                 callbackRef.current(base64);
@@ -129,7 +113,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
             gainNode.connect(audioContextRef.current.destination);
 
             setIsCapturing(true);
-            logger.info(`Audio capture started at ${nativeSampleRate}Hz using AudioWorklet`);
+            logger.info(`Audio capture started at ${nativeSampleRate}Hz using AudioWorklet (resampling to 16kHz in worklet)`);
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to access microphone';
@@ -180,51 +164,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 }
 
 /**
- * Resample audio from source sample rate to target sample rate using linear interpolation
- */
-function resample(input: Float32Array, srcRate: number, destRate: number): Float32Array {
-    if (srcRate === destRate) {
-        return input;
-    }
-
-    const ratio = srcRate / destRate;
-    const outputLength = Math.floor(input.length / ratio);
-    const output = new Float32Array(outputLength);
-
-    for (let i = 0; i < outputLength; i++) {
-        const srcIndex = i * ratio;
-        const srcIndexFloor = Math.floor(srcIndex);
-        const srcIndexCeil = Math.min(srcIndexFloor + 1, input.length - 1);
-        const fraction = srcIndex - srcIndexFloor;
-
-        // Linear interpolation
-        const sample1 = input[srcIndexFloor] ?? 0;
-        const sample2 = input[srcIndexCeil] ?? 0;
-        output[i] = sample1 + (sample2 - sample1) * fraction;
-    }
-
-    return output;
-}
-
-/**
- * Convert Float32 audio samples to 16-bit PCM (little-endian)
- */
-function float32ToPCM16(samples: Float32Array): Int16Array {
-    const pcm = new Int16Array(samples.length);
-
-    for (let i = 0; i < samples.length; i++) {
-        // Clamp to [-1, 1] range
-        const sample = samples[i] ?? 0;
-        const clamped = Math.max(-1, Math.min(1, sample));
-        // Convert to 16-bit signed integer
-        pcm[i] = Math.round(clamped * 32767);
-    }
-
-    return pcm;
-}
-
-/**
  * Convert Uint8Array to base64 string
+ * Compatible with browser environments
  */
 function uint8ArrayToBase64(bytes: Uint8Array): string {
     let binary = '';

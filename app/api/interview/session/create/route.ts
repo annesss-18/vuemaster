@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
 import { FieldValue } from 'firebase-admin/firestore';
+import { logger } from '@/lib/logger';
+import type { User } from '@/types';
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, user: User) => {
     try {
         const { templateId } = await req.json();
 
@@ -34,7 +36,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         return NextResponse.json({ sessionId: sessionRef.id });
     } catch (error) {
-        console.error("Create Session Error:", error);
+        logger.error('Create Session Error:', error);
         return NextResponse.json({
             error: error instanceof Error ? error.message : 'Internal Server Error'
         }, { status: 500 });

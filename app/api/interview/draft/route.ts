@@ -22,7 +22,7 @@ const draftSchema = z.object({
     systemInstruction: z.string().describe("A highly detailed persona and instruction set for the AI Interviewer agent.")
 });
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, _user) => {
     // Parse formData ONCE before try block so fallback can access values
     const formData = await req.formData();
     const jdType = formData.get('jdType') as string;

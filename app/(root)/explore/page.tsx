@@ -7,7 +7,8 @@ import { Globe, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 const Explore = async () => {
-  const user = await getCurrentUser();
+  // User context available for future features (e.g., personalized recommendations)
+  await getCurrentUser();
   const publicTemplates = await getPublicTemplates(50);
 
   return (

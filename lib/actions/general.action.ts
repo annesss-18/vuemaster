@@ -73,6 +73,7 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
                     companyName: templateData.companyName,
                     type: templateData.type,
                     finalized: sessionData.status === 'completed',
+                    systemInstruction: templateData.systemInstruction,
                 } as Interview);
             }
         }
@@ -85,7 +86,7 @@ export async function getInterviewsByUserId(userId: string): Promise<Interview[]
     }
 }
 
-export async function getLatestInterviews(params: GetLatestInterviewsParams): Promise<InterviewTemplate[] | null> {
+export async function getLatestInterviews(params: GetLatestInterviewsParams): Promise<(InterviewTemplate & { techstack: string[] })[] | null> {
     const { limit = 20 } = params; // userId param is not strictly needed for public fetch
 
     try {
@@ -100,11 +101,15 @@ export async function getLatestInterviews(params: GetLatestInterviewsParams): Pr
             return [];
         }
 
-        // Return raw templates, not mapped "Interview" objects, for better type safety in the UI
-        return templatesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        })) as InterviewTemplate[];
+        // Map to consistent format with techstack (lowercase) for UI components
+        return templatesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                techstack: data.techStack || [],
+            };
+        }) as (InterviewTemplate & { techstack: string[] })[];
 
     } catch (error) {
         logger.error('Error fetching public templates:', error);
@@ -333,6 +338,7 @@ export async function getSessionById(
             jobDescription: templateData.jobDescription || '',
             type: templateData.type,
             finalized: sessionData.status === 'completed',
+            systemInstruction: templateData.systemInstruction,
         } as Interview;
 
     } catch (error) {

@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { useLiveInterview, TranscriptEntry } from '@/lib/hooks/useLiveInterview';
+import { useLiveInterview } from '@/lib/hooks/useLiveInterview';
 import { useAudioCapture } from '@/lib/hooks/useAudioCapture';
 import { useAudioPlayback } from '@/lib/hooks/useAudioPlayback';
 import { ResumeUploader } from '@/components/ResumeUploader';
@@ -37,6 +37,7 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
         techStack: interview.techstack,
         questions: interview.questions,
         resumeText: resumeText,
+        systemInstruction: interview.systemInstruction,
     }), [interview, resumeText]);
 
     // Initialize hooks
@@ -45,6 +46,9 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
         error: connectionError,
         transcript,
         isAIResponding,
+        isUserSpeaking,
+        currentCaption,
+        currentSpeaker,
         elapsedTime,
         connect,
         disconnect,
@@ -311,8 +315,8 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
 
     // Active interview phase
     return (
-        <div className="space-y-6 animate-slideInLeft" style={{ animationDelay: '0.2s' }}>
-            {/* Connection Status Bar */}
+        <div className="animate-slideInLeft flex flex-col gap-4" style={{ animationDelay: '0.2s' }}>
+            {/* Top Bar with Status and Controls */}
             <div className="card-border">
                 <div className="card !p-4">
                     <div className="flex items-center justify-between">
@@ -374,135 +378,132 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
                 </div>
             </div>
 
-            {/* Transcript Panel */}
-            <div className="card-border">
-                <div className="card !p-0 overflow-hidden">
-                    <div className="p-4 border-b border-primary-400/20 bg-dark-200/40">
-                        <h3 className="text-lg font-semibold text-light-100 flex items-center gap-2">
-                            <Sparkles className="size-5 text-primary-300" />
-                            Live Transcript
-                        </h3>
-                    </div>
+            {/* Main Interview View - Immersive Speaker Indicator */}
+            <div className="card-border flex-1">
+                <div className="card !p-0 h-[60vh] flex flex-col items-center justify-center relative overflow-hidden">
 
-                    <div className="h-80 overflow-y-auto p-4 space-y-4">
-                        {transcript.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-center">
-                                {connectionStatus === 'connecting' ? (
-                                    <>
-                                        <Loader2 className="size-8 text-primary-300 animate-spin mb-4" />
-                                        <p className="text-light-300">Connecting to AI interviewer...</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Mic className="size-8 text-light-400 mb-4" />
-                                        <p className="text-light-300">Start speaking to begin the interview</p>
-                                    </>
-                                )}
+                    {/* Central Speaker Indicator */}
+                    <div className="flex flex-col items-center gap-6">
+                        {/* Connecting State */}
+                        {connectionStatus === 'connecting' && (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative">
+                                    <div className="size-32 rounded-full bg-primary-500/20 border-2 border-primary-400/40 flex items-center justify-center">
+                                        <Loader2 className="size-16 text-primary-300 animate-spin" />
+                                    </div>
+                                </div>
+                                <p className="text-light-300 text-lg">Connecting to AI interviewer...</p>
                             </div>
-                        ) : (
-                            transcript.map((entry, index) => (
-                                <TranscriptEntryComponent key={index} entry={entry} />
-                            ))
                         )}
 
-                        {/* AI responding indicator */}
-                        {isAIResponding && (
-                            <div className="flex items-start gap-3">
-                                <div className="size-8 rounded-full bg-primary-500/20 border border-primary-400/40 flex items-center justify-center shrink-0">
-                                    <Bot className="size-4 text-primary-300" />
+                        {/* AI Speaking State */}
+                        {connectionStatus === 'connected' && isAIResponding && (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative">
+                                    {/* Pulsing rings */}
+                                    <div className="absolute inset-0 rounded-full bg-primary-400/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+                                    <div className="absolute -inset-4 rounded-full bg-primary-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
+
+                                    <div className="relative size-32 rounded-full bg-gradient-to-br from-primary-500/30 to-primary-600/30 border-2 border-primary-400/60 flex items-center justify-center shadow-glow">
+                                        <Bot className="size-16 text-primary-300" />
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2 py-2">
+                                <div className="flex items-center gap-2">
                                     <div className="flex gap-1">
                                         <span className="size-2 rounded-full bg-primary-300 animate-bounce" style={{ animationDelay: '0ms' }} />
                                         <span className="size-2 rounded-full bg-primary-300 animate-bounce" style={{ animationDelay: '150ms' }} />
                                         <span className="size-2 rounded-full bg-primary-300 animate-bounce" style={{ animationDelay: '300ms' }} />
                                     </div>
+                                    <span className="text-primary-300 font-medium">AI Interviewer Speaking</span>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* User Speaking State */}
+                        {connectionStatus === 'connected' && isUserSpeaking && !isAIResponding && (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative">
+                                    {/* Pulsing rings */}
+                                    <div className="absolute inset-0 rounded-full bg-accent-400/20 animate-ping" style={{ animationDuration: '1.5s' }} />
+                                    <div className="absolute -inset-4 rounded-full bg-accent-400/10 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
+
+                                    <div className="relative size-32 rounded-full bg-gradient-to-br from-accent-400/30 to-accent-500/30 border-2 border-accent-300/60 flex items-center justify-center shadow-glow-accent">
+                                        <User className="size-16 text-accent-300" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="size-2 rounded-full bg-accent-300 animate-pulse" />
+                                    <span className="text-accent-300 font-medium">You are speaking</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Idle/Listening State */}
+                        {connectionStatus === 'connected' && !isAIResponding && !isUserSpeaking && (
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative">
+                                    <div className="size-32 rounded-full bg-dark-300/60 border-2 border-primary-400/30 flex items-center justify-center">
+                                        {isMuted ? (
+                                            <MicOff className="size-16 text-warning-200" />
+                                        ) : (
+                                            <Mic className="size-16 text-light-400" />
+                                        )}
+                                    </div>
+                                </div>
+                                <p className="text-light-400">
+                                    {isMuted ? 'Microphone muted' : 'Listening...'}
+                                </p>
                             </div>
                         )}
                     </div>
 
-                    {/* Audio status bar */}
-                    <div className="p-3 border-t border-primary-400/20 bg-dark-200/40">
-                        <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                                {isCapturing && !isMuted && (
-                                    <>
-                                        <div className="size-2 rounded-full bg-success-100 animate-pulse" />
-                                        <span className="text-light-300">Listening...</span>
-                                    </>
-                                )}
-                                {isMuted && (
-                                    <>
-                                        <MicOff className="size-3 text-warning-200" />
-                                        <span className="text-warning-200">Muted</span>
-                                    </>
-                                )}
-                            </div>
-                            {isPlaying && (
-                                <div className="flex items-center gap-2">
-                                    <div className="flex gap-0.5">
-                                        {[...Array(4)].map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className="w-1 bg-primary-300 rounded-full animate-pulse"
-                                                style={{
-                                                    height: `${Math.random() * 12 + 4}px`,
-                                                    animationDelay: `${i * 100}ms`,
-                                                }}
-                                            />
-                                        ))}
+                    {/* Subtitle Caption Overlay - Fixed at Bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 p-6">
+                        <div className="max-w-3xl mx-auto">
+                            {currentCaption && (
+                                <div className={`subtitle-container animate-fadeIn ${currentSpeaker === 'model'
+                                    ? 'bg-primary-900/80 border-primary-400/30'
+                                    : 'bg-accent-900/80 border-accent-300/30'
+                                    }`}>
+                                    <div className="flex items-start gap-3">
+                                        <div className={`shrink-0 size-6 rounded-full flex items-center justify-center ${currentSpeaker === 'model'
+                                            ? 'bg-primary-500/30'
+                                            : 'bg-accent-400/30'
+                                            }`}>
+                                            {currentSpeaker === 'model' ? (
+                                                <Bot className="size-3.5 text-primary-300" />
+                                            ) : (
+                                                <User className="size-3.5 text-accent-300" />
+                                            )}
+                                        </div>
+                                        <p className="text-lg text-light-100 leading-relaxed">
+                                            {currentCaption}
+                                        </p>
                                     </div>
-                                    <span className="text-light-300">AI speaking...</span>
+                                </div>
+                            )}
+
+                            {/* Muted status in subtitle area */}
+                            {isMuted && !currentCaption && (
+                                <div className="subtitle-container bg-warning-200/20 border-warning-200/30">
+                                    <div className="flex items-center gap-2 justify-center">
+                                        <MicOff className="size-4 text-warning-200" />
+                                        <span className="text-warning-200 text-sm">Your microphone is muted</span>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Session time warning */}
-            {sessionTimeWarning && (
-                <div className="card-border">
-                    <div className="card !p-4 bg-warning-200/10 border-warning-200/30">
-                        <div className="flex items-center gap-3">
-                            <AlertCircle className="size-5 text-warning-200" />
-                            <p className="text-sm text-warning-200">
-                                Session nearing 15-minute limit. Consider wrapping up the interview.
-                            </p>
+                    {/* Session time warning - Floating */}
+                    {sessionTimeWarning && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-warning-200/20 border border-warning-200/30">
+                                <AlertCircle className="size-4 text-warning-200" />
+                                <span className="text-sm text-warning-200">Session nearing 15-minute limit</span>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-// Transcript entry component
-function TranscriptEntryComponent({ entry }: { entry: TranscriptEntry }) {
-    const isUser = entry.role === 'user';
-
-    return (
-        <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-            <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${isUser
-                ? 'bg-accent-300/20 border border-accent-300/40'
-                : 'bg-primary-500/20 border border-primary-400/40'
-                }`}>
-                {isUser ? (
-                    <User className="size-4 text-accent-300" />
-                ) : (
-                    <Bot className="size-4 text-primary-300" />
-                )}
-            </div>
-            <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
-                <p className={`text-xs font-medium mb-1 ${isUser ? 'text-accent-300' : 'text-primary-300'}`}>
-                    {isUser ? 'You' : 'AI Interviewer'}
-                </p>
-                <div className={`inline-block rounded-2xl px-4 py-2 max-w-[85%] ${isUser
-                    ? 'bg-accent-300/10 border border-accent-300/20 text-light-200'
-                    : 'bg-dark-200/60 border border-primary-400/20 text-light-100'
-                    }`}>
-                    <p className="text-sm">{entry.content}</p>
+                    )}
                 </div>
             </div>
         </div>

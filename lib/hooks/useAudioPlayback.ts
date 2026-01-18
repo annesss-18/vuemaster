@@ -24,13 +24,15 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
 
     const getAudioContext = useCallback(() => {
         if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-            // Get the system sample rate
-            const tempCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const systemSampleRate = tempCtx.sampleRate;
+            // Get/create audio context (with webkit fallback for Safari)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+            if (!AudioContextClass) throw new Error('AudioContext not supported');
+            const tempCtx = new AudioContextClass();
             tempCtx.close();
 
             // Create context at system rate - we'll resample on decode
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            audioContextRef.current = new AudioContextClass();
         }
         // Resume if suspended (browser autoplay policy)
         if (audioContextRef.current.state === 'suspended') {

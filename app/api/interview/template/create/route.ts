@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
-import type { InterviewTemplate } from '@/types';
+import { logger } from '@/lib/logger';
+import type { InterviewTemplate, User } from '@/types';
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, user: User) => {
     try {
         const body = await req.json();
 
@@ -36,7 +37,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         return NextResponse.json({ success: true, templateId: docRef.id });
     } catch (error) {
-        console.error("Create Template Error:", error);
+        logger.error('Create Template Error:', error);
         return NextResponse.json({
             error: error instanceof Error ? error.message : 'Internal Server Error'
         }, { status: 500 });

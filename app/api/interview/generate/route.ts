@@ -5,7 +5,7 @@ import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { db } from '@/firebase/admin';
 import { withAuth } from '@/lib/api-middleware';
-import { InterviewTemplate } from '@/types';
+import { InterviewTemplate, User } from '@/types';
 
 export const runtime = 'nodejs';
 
@@ -41,7 +41,7 @@ const templateSchema = z.object({
     systemInstruction: z.string().describe("Detailed instructions for the AI agent"),
 });
 
-export const POST = withAuth(async (req: NextRequest, user: any) => {
+export const POST = withAuth(async (req: NextRequest, user: User) => {
     try {
         // 1. Parse and validate form data
         const formData = await req.formData();
@@ -59,7 +59,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         // Validate input
         const validation = requestSchema.safeParse(rawData);
-        
+
         if (!validation.success) {
             return NextResponse.json({
                 error: 'Invalid input',
@@ -75,7 +75,7 @@ export const POST = withAuth(async (req: NextRequest, user: any) => {
 
         // 2. Generate template with AI
         const constructedPrompt = `
-You are an Expert Technical Recruiter. Create a rigorous interview template.
+You are an expert technical interviewer and architect of AI personalities. Create a comprehensive interview template.
 
 CONTEXT:
 Role: ${validatedData.role}
@@ -92,10 +92,18 @@ INSTRUCTIONS:
 1. Use the "Confirmed Tech Stack" as the primary list of skills to test.
 2. Identify 3-5 Focus Areas based on the Role and Stack.
 3. Generate 5-10 challenging, role-specific questions.
-4. Create a system instruction for the AI Agent.
+4. **Create a System Instruction for the AI Agent**.
+   - **Persona**: Define a specific persona (e.g., "Senior Engineering Manager at ${validatedData.companyName || 'TechCorp'}").
+   - **Tone**: Professional, encouraging, but rigorous. Instruct the AI to use natural speech patterns (e.g., "I see," "That makes sense," "Could you clarify...").
+   - **Strategy**: 
+     - Do NOT just read the list of questions. Use them as a guide.
+     - Listen to the candidate's answers. If they are vague, ask follow-up questions to dig deeper.
+     - If they struggle, offer a small hint, then see if they recover.
+     - Move naturally between topics.
+   - **Format**: The System Instruction should be a direct prompt text for the AI Agent.
 
 Output JSON matching the schema.
-        `.trim();
+`.trim();
 
         const result = await generateObject({
             model: google('gemini-3-pro-preview'),
@@ -123,7 +131,7 @@ Output JSON matching the schema.
         };
 
         const docRef = await db.collection('interview_templates').add(templateData);
-        
+
         return NextResponse.json({ success: true, templateId: docRef.id });
 
     } catch (error) {

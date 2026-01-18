@@ -8,7 +8,7 @@ import { FileText, Upload, Loader2, Sparkles, X, CheckCircle2, ArrowLeft, Wand2,
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { validateAndSanitizeURL } from '@/lib/validation'
@@ -89,7 +89,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
       setStage('config')
       toast.success("Analysis complete! Review the details below.")
 
-    } catch (error) {
+    } catch {
       toast.error("Could not analyze JD. Please fill details manually.")
       setStage('config')
     }
@@ -159,7 +159,7 @@ export default function CreateInterviewForm({ userId }: CreateInterviewFormProps
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Tabs defaultValue="text" value={jdType} onValueChange={(v) => setJdType(v as any)} className="w-full">
+          <Tabs defaultValue="text" value={jdType} onValueChange={(v) => setJdType(v as 'text' | 'url' | 'file')} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-dark-200/50 p-1">
               <TabsTrigger value="text">Paste Text</TabsTrigger>
               <TabsTrigger value="url">URL</TabsTrigger>

@@ -20,7 +20,7 @@ interface InterviewCardProps {
     role: string;
     type: string;
     techstack: string[];
-    createdAt: Date;
+    createdAt: string | Date;
     companyName?: string;
     isSession?: boolean;
     feedback?: FeedbackData | null;
