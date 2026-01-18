@@ -7,30 +7,17 @@ import { logger } from "../logger";
 import { Query } from 'firebase-admin/firestore';
 import { CreateFeedbackParams, Feedback, GetFeedbackByInterviewIdParams, GetLatestInterviewsParams, Interview, InterviewTemplate, SessionCardData, TemplateCardData } from "@/types";
 import { FieldPath } from 'firebase-admin/firestore';
+import { unstable_cache, revalidateTag } from 'next/cache';
 
 /**
- * In-memory template cache for reducing Firestore reads.
+ * Template caching using Next.js unstable_cache for production-ready caching
+ * that works across serverless instances.
  * 
- * ⚠️ PRODUCTION NOTE: This in-memory cache does NOT work across multiple 
- * serverless instances. For production deployments with horizontal scaling,
- * consider using:
- * 
- * 1. Redis/Upstash:
- *    import { Redis } from "@upstash/redis";
- *    const redis = Redis.fromEnv();
- *    await redis.set(`template:${id}`, JSON.stringify(template), { ex: 300 });
- *    const cached = await redis.get(`template:${id}`);
- * 
- * 2. Next.js unstable_cache (for static/SSR data):
- *    import { unstable_cache } from 'next/cache';
- *    const getTemplateById = unstable_cache(
- *      async (id) => { ... },
- *      ['template'],
- *      { revalidate: 300 }
- *    );
+ * - Cache is automatically invalidated after 5 minutes (revalidate: 300)
+ * - Use revalidateTag('template') to manually invalidate all cached templates
+ * - Use revalidateTag(`template:${id}`) to invalidate a specific template
  */
-const templateCache = new Map<string, { data: InterviewTemplate; expires: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_REVALIDATE_SECONDS = 300; // 5 minutes
 
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
     try {
@@ -397,45 +384,62 @@ export async function getSessionsWithFeedback(userId: string): Promise<SessionCa
     }
 }
 
+/**
+ * Fetch template from Firestore (internal function used by cache)
+ */
+async function fetchTemplateFromDb(templateId: string): Promise<InterviewTemplate | null> {
+    const doc = await db.collection('interview_templates').doc(templateId).get();
+
+    if (!doc.exists) {
+        return null;
+    }
+
+    return {
+        id: doc.id,
+        ...doc.data()
+    } as InterviewTemplate;
+}
+
+/**
+ * Get template by ID with production-ready caching using Next.js unstable_cache.
+ * Cache automatically revalidates after 5 minutes.
+ */
 export async function getTemplateById(templateId: string): Promise<InterviewTemplate | null> {
     try {
-        // Check cache first
-        const cached = templateCache.get(templateId);
-        if (cached && cached.expires > Date.now()) {
-            logger.info(`Cache hit for template ${templateId}`);
-            return cached.data;
-        }
+        // Create a cached version of the fetch function for this specific template
+        const getCachedTemplate = unstable_cache(
+            async () => fetchTemplateFromDb(templateId),
+            [`template:${templateId}`],
+            {
+                revalidate: CACHE_REVALIDATE_SECONDS,
+                tags: ['template', `template:${templateId}`],
+            }
+        );
 
-        // Fetch from Firestore
-        const doc = await db.collection('interview_templates').doc(templateId).get();
-
-        if (!doc.exists) {
-            return null;
-        }
-
-        const template = {
-            id: doc.id,
-            ...doc.data()
-        } as InterviewTemplate;
-
-        // Update cache
-        templateCache.set(templateId, {
-            data: template,
-            expires: Date.now() + CACHE_TTL,
-        });
-
-        return template;
+        return await getCachedTemplate();
     } catch (error) {
         logger.error('Error fetching template:', error);
         return null;
     }
 }
 
+/**
+ * Clear template cache by revalidating tags.
+ * Call this when a template is updated or deleted.
+ * 
+ * Note: In Next.js 16, revalidateTag requires a cache profile as the second argument.
+ */
 export async function clearTemplateCache(templateId?: string): Promise<void> {
-    if (templateId) {
-        templateCache.delete(templateId);
-    } else {
-        templateCache.clear();
+    try {
+        if (templateId) {
+            revalidateTag(`template:${templateId}`, 'default');
+            logger.info(`Cache invalidated for template ${templateId}`);
+        } else {
+            revalidateTag('template', 'default');
+            logger.info('All template caches invalidated');
+        }
+    } catch (error) {
+        logger.error('Error clearing template cache:', error);
     }
 }
 

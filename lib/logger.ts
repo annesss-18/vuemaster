@@ -1,4 +1,6 @@
-// lib/logger.ts (FIXED VERSION - Enhanced with debug support)
+// lib/logger.ts - Centralized logging utility
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* eslint-disable no-console */
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 

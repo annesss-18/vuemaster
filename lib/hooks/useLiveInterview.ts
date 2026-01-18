@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage, Session } from '@google/genai';
+import { logger } from '@/lib/logger';
 
 export interface TranscriptEntry {
     role: 'user' | 'model';
@@ -88,7 +89,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     useEffect(() => {
         if (status === 'connected' && sessionRef.current && !hasInitialPromptSentRef.current) {
             hasInitialPromptSentRef.current = true;
-            console.log('📤 Sending initial prompt to start interview...');
+            logger.debug('📤 Sending initial prompt to start interview...');
             try {
                 sessionRef.current.sendClientContent({
                     turns: [
@@ -99,7 +100,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                     ],
                     turnComplete: true,
                 });
-                console.log('✅ Initial prompt sent successfully');
+                logger.debug('✅ Initial prompt sent successfully');
             } catch (err) {
                 console.error('Failed to send initial prompt:', err);
             }
@@ -127,7 +128,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             for (const part of message.serverContent.modelTurn.parts) {
                 // Audio data
                 if (part.inlineData?.data) {
-                    console.log('📢 Received audio chunk from Gemini, length:', part.inlineData.data.length);
+                    logger.debug('📢 Received audio chunk from Gemini, length:', part.inlineData.data.length);
                     if (audioCallbackRef.current) {
                         audioCallbackRef.current(part.inlineData.data);
                     } else {
@@ -248,7 +249,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                 },
                 callbacks: {
                     onopen: () => {
-                        console.log('Live API connection established');
+                        logger.info('Live API connection established');
                         isConnectedRef.current = true;
                         setStatus('connected');
                         reconnectionAttemptsRef.current = 0;
@@ -263,7 +264,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                         setStatus('error');
                     },
                     onclose: (e: CloseEvent) => {
-                        console.log('Live API connection closed:', e.reason);
+                        logger.info('Live API connection closed:', e.reason);
                         isConnectedRef.current = false;
                         if (!isIntentionalDisconnectRef.current) {
                             setStatus('disconnected');
@@ -298,7 +299,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         const delay = baseDelay * Math.pow(2, reconnectionAttemptsRef.current);
         reconnectionAttemptsRef.current += 1;
 
-        console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectionAttemptsRef.current}/${maxReconnectionAttempts})`);
+        logger.info(`Attempting to reconnect in ${delay}ms (attempt ${reconnectionAttemptsRef.current}/${maxReconnectionAttempts})`);
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
@@ -355,7 +356,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         }
 
         try {
-            console.log('📤 Sending prompt...');
+            logger.debug('📤 Sending prompt...');
             sessionRef.current.sendClientContent({
                 turns: [
                     {

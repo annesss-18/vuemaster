@@ -7,6 +7,7 @@ import { useLiveInterview, TranscriptEntry } from '@/lib/hooks/useLiveInterview'
 import { useAudioCapture } from '@/lib/hooks/useAudioCapture';
 import { useAudioPlayback } from '@/lib/hooks/useAudioPlayback';
 import { ResumeUploader } from '@/components/ResumeUploader';
+import { logger } from '@/lib/logger';
 import { Mic, MicOff, Phone, PhoneOff, Loader2, AlertCircle, Sparkles, Clock, User, Bot } from 'lucide-react';
 import type { Interview } from '@/types';
 
@@ -75,9 +76,9 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
 
     // Set up audio playback callback
     useEffect(() => {
-        console.log('🎧 Registering audio playback callback');
+        logger.debug('🎧 Registering audio playback callback');
         onAudioReceived((base64Data) => {
-            console.log('🎵 Audio callback triggered, forwarding to playback');
+            logger.debug('🎵 Audio callback triggered, forwarding to playback');
             queueAudio(base64Data);
         });
     }, [onAudioReceived, queueAudio]);
@@ -135,9 +136,9 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
             setPhase('active');
 
             // Register callback
-            console.log('🎧 Registering audio callback in handleStartInterview');
+            logger.debug('🎧 Registering audio callback in handleStartInterview');
             onAudioReceived((base64Data) => {
-                console.log('🎵 Audio received, length:', base64Data.length);
+                logger.debug('🎵 Audio received, length:', base64Data.length);
                 queueAudio(base64Data);
             });
 

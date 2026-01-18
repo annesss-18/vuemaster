@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { logger } from '@/lib/logger';
 
 interface UseAudioPlaybackReturn {
     isPlaying: boolean;
@@ -108,12 +109,12 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
                 timestamp: Date.now(),
             });
 
-            console.log('🔊 Audio queued, queue size:', audioQueueRef.current.length, 'isPlaying:', !!playbackStartTimeRef.current);
+            logger.debug('🔊 Audio queued, queue size:', audioQueueRef.current.length, 'isPlaying:', !!playbackStartTimeRef.current);
 
             // Start playback when we have 2 chunks buffered for smoother audio
             // Single chunk can cause choppy playback
             if (!playbackStartTimeRef.current && audioQueueRef.current.length >= 2) {
-                console.log('▶️ Starting audio playback...');
+                logger.debug('▶️ Starting audio playback...');
                 playNextInQueue();
             }
 

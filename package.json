@@ -16,6 +16,8 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "@vercel/analytics": "^1.6.1",
     "ai": "^5.0.121",
     "cheerio": "^1.1.2",

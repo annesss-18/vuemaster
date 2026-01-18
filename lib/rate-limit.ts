@@ -1,131 +1,184 @@
 // lib/rate-limit.ts
 /**
- * Simple in-memory rate limiting for API routes
+ * Production-ready rate limiting using Upstash Redis.
+ * Falls back to in-memory rate limiting if Redis is not configured.
  * 
- * ⚠️ PRODUCTION NOTE: This in-memory implementation does NOT work across 
- * multiple serverless instances. For production deployments with horizontal 
- * scaling, use Redis, Upstash, or a dedicated rate limiting service.
- * 
- * Example with Upstash:
- * import { Ratelimit } from "@upstash/ratelimit";
- * import { Redis } from "@upstash/redis";
- * const ratelimit = new Ratelimit({
- *   redis: Redis.fromEnv(),
- *   limiter: Ratelimit.slidingWindow(10, "60 s"),
- * });
+ * Required environment variables for Redis:
+ * - UPSTASH_REDIS_REST_URL
+ * - UPSTASH_REDIS_REST_TOKEN
  */
+
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { logger } from '@/lib/logger';
+
+// Check if Redis is configured
+const isRedisConfigured = !!(
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
+// Create Redis client if configured
+const redis = isRedisConfigured
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL!,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+    : null;
+
+// Create rate limiters with different configurations
+const rateLimiters = new Map<string, Ratelimit>();
+
+function getOrCreateRateLimiter(config: RateLimitConfig): Ratelimit | null {
+    if (!redis) return null;
+
+    const key = `${config.maxRequests ?? 10}-${config.windowMs ?? 60000}`;
+
+    if (!rateLimiters.has(key)) {
+        const windowSec = Math.ceil((config.windowMs ?? 60000) / 1000);
+        rateLimiters.set(key, new Ratelimit({
+            redis,
+            limiter: Ratelimit.slidingWindow(config.maxRequests ?? 10, `${windowSec} s`),
+            analytics: true,
+        }));
+    }
+
+    return rateLimiters.get(key)!;
+}
+
+// ============================================================================
+// In-memory fallback for development (when Redis is not configured)
+// ============================================================================
 
 interface RateLimitEntry {
     count: number;
     resetTime: number;
 }
 
-// Default configuration constants
-const DEFAULT_WINDOW_MS = 60 * 1000; // 1 minute
-const DEFAULT_MAX_REQUESTS = 10;
-
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
-// Cleanup old entries every 5 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of rateLimitMap.entries()) {
-        if (entry.resetTime < now) {
-            rateLimitMap.delete(key);
+// Cleanup old entries every 5 minutes (only for in-memory fallback)
+if (typeof setInterval !== 'undefined') {
+    setInterval(() => {
+        const now = Date.now();
+        for (const [key, entry] of rateLimitMap.entries()) {
+            if (entry.resetTime < now) {
+                rateLimitMap.delete(key);
+            }
         }
-    }
-}, 5 * 60 * 1000);
-
-export interface RateLimitConfig {
-    windowMs?: number; // Time window in milliseconds
-    maxRequests?: number; // Max requests per window
+    }, 5 * 60 * 1000);
 }
 
-/**
- * Check if a request should be rate limited
- * @param identifier - Unique identifier (userId, IP, etc.)
- * @param config - Rate limit configuration
- * @returns { allowed: boolean, remaining: number, resetTime: number }
- */
-export function checkRateLimit(
+function checkRateLimitInMemory(
     identifier: string,
-    config: RateLimitConfig = {}
+    config: RateLimitConfig
 ): { allowed: boolean; remaining: number; resetTime: number } {
-    const windowMs = config.windowMs || DEFAULT_WINDOW_MS;
-    const maxRequests = config.maxRequests || DEFAULT_MAX_REQUESTS;
+    const windowMs = config.windowMs ?? 60000;
+    const maxRequests = config.maxRequests ?? 10;
 
     const now = Date.now();
     const entry = rateLimitMap.get(identifier);
 
-    // No previous entry or window expired
     if (!entry || entry.resetTime < now) {
         const resetTime = now + windowMs;
-        rateLimitMap.set(identifier, {
-            count: 1,
-            resetTime,
-        });
-
-        return {
-            allowed: true,
-            remaining: maxRequests - 1,
-            resetTime,
-        };
+        rateLimitMap.set(identifier, { count: 1, resetTime });
+        return { allowed: true, remaining: maxRequests - 1, resetTime };
     }
 
-    // Within current window
     if (entry.count < maxRequests) {
         entry.count++;
         rateLimitMap.set(identifier, entry);
-
-        return {
-            allowed: true,
-            remaining: maxRequests - entry.count,
-            resetTime: entry.resetTime,
-        };
+        return { allowed: true, remaining: maxRequests - entry.count, resetTime: entry.resetTime };
     }
 
-    // Rate limit exceeded
-    return {
-        allowed: false,
-        remaining: 0,
-        resetTime: entry.resetTime,
-    };
+    return { allowed: false, remaining: 0, resetTime: entry.resetTime };
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
+export interface RateLimitConfig {
+    windowMs?: number; // Time window in milliseconds (default: 60000 = 1 minute)
+    maxRequests?: number; // Max requests per window (default: 10)
+}
+
+export interface RateLimitResult {
+    allowed: boolean;
+    remaining: number;
+    resetTime: number;
 }
 
 /**
- * Clear rate limit for an identifier (useful for testing)
+ * Check if a request should be rate limited.
+ * Uses Upstash Redis in production, falls back to in-memory for development.
+ * 
+ * @param identifier - Unique identifier (userId, IP, etc.)
+ * @param config - Rate limit configuration
+ * @returns Promise<{ allowed: boolean, remaining: number, resetTime: number }>
+ */
+export async function checkRateLimit(
+    identifier: string,
+    config: RateLimitConfig = {}
+): Promise<RateLimitResult> {
+    const rateLimiter = getOrCreateRateLimiter(config);
+
+    // Use Redis if available
+    if (rateLimiter) {
+        try {
+            const result = await rateLimiter.limit(identifier);
+            return {
+                allowed: result.success,
+                remaining: result.remaining,
+                resetTime: result.reset,
+            };
+        } catch (error) {
+            logger.error('Redis rate limit error, falling back to in-memory:', error);
+            // Fall through to in-memory
+        }
+    }
+
+    // Fallback to in-memory
+    if (!isRedisConfigured) {
+        logger.debug('Using in-memory rate limiting (Redis not configured)');
+    }
+    return checkRateLimitInMemory(identifier, config);
+}
+
+/**
+ * Clear rate limit for an identifier.
+ * Only works for in-memory rate limiting (useful for testing).
  */
 export function clearRateLimit(identifier: string): void {
     rateLimitMap.delete(identifier);
 }
 
 /**
- * Get current rate limit status without incrementing
- * @param identifier - Unique identifier (userId, IP, etc.)
- * @param maxRequests - Max requests to calculate remaining (defaults to DEFAULT_MAX_REQUESTS)
+ * Get current rate limit status without incrementing.
+ * Only works for in-memory rate limiting.
  */
 export function getRateLimitStatus(
     identifier: string,
-    maxRequests: number = DEFAULT_MAX_REQUESTS
-): {
-    count: number;
-    remaining: number;
-    resetTime: number;
-} | null {
+    maxRequests: number = 10
+): { count: number; remaining: number; resetTime: number } | null {
     const entry = rateLimitMap.get(identifier);
 
-    if (!entry) {
-        return null;
-    }
+    if (!entry) return null;
 
     const now = Date.now();
-    if (entry.resetTime < now) {
-        return null;
-    }
+    if (entry.resetTime < now) return null;
 
     return {
         count: entry.count,
         remaining: Math.max(0, maxRequests - entry.count),
         resetTime: entry.resetTime,
     };
+}
+
+/**
+ * Check if Redis rate limiting is being used.
+ * Useful for debugging and monitoring.
+ */
+export function isUsingRedis(): boolean {
+    return isRedisConfigured;
 }

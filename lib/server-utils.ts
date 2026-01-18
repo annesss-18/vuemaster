@@ -1,6 +1,8 @@
-// lib/server-utils.ts (REFACTORED - Using canvas-based approach without pdf-parse)
+// lib/server-utils.ts
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
+import { extractText } from 'unpdf';
+import { logger } from '@/lib/logger';
 
 const MAX_RESUME_SIZE_MB = 5;
 const MAX_TEXT_LENGTH = 50000;
@@ -30,57 +32,23 @@ function isPrivateOrLocalhost(hostname: string): boolean {
 const ALLOWED_PROTOCOLS = ['http:', 'https:'];
 
 /**
- * Extract text from PDF using a simple regex-based approach
- * This is more reliable than heavy PDF libraries in serverless environments
+ * Extract text from PDF using the unpdf library
+ * This provides reliable extraction including compressed streams and encoded fonts
  */
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    // Convert buffer to string to extract text
-    const pdfText = buffer.toString('latin1');
-    
-    // Check if it's a valid PDF
-    if (!pdfText.startsWith('%PDF')) {
-      throw new Error('Invalid PDF file format');
-    }
+    // Use unpdf for reliable text extraction with merged pages
+    const result = await extractText(buffer, { mergePages: true });
 
-    // Extract text content using regex patterns
-    // This extracts text between BT (Begin Text) and ET (End Text) markers
-    const textMatches = pdfText.match(/\(([^)]+)\)/g);
-    
-    if (!textMatches || textMatches.length === 0) {
-      // Try alternative pattern for encoded text
-      const altMatches = pdfText.match(/\/F\d+\s+\d+\s+Tf\s*\(([^)]*)\)/g);
-      
-      if (!altMatches || altMatches.length === 0) {
-        throw new Error('No extractable text found in PDF. The PDF may be image-based or encrypted.');
-      }
-      
-      const text = altMatches
-        .map(match => {
-          const textMatch = match.match(/\(([^)]*)\)/);
-          return textMatch ? textMatch[1] : '';
-        })
-        .join(' ')
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '')
-        .replace(/\\\(/g, '(')
-        .replace(/\\\)/g, ')')
-        .replace(/\\\\/g, '\\')
-        .trim();
-        
-      return text;
-    }
+    // With mergePages: true, result.text is a single string
+    let extractedText = result.text;
 
-    // Extract and clean text
-    const extractedText = textMatches
-      .map(match => match.replace(/^\(|\)$/g, ''))
-      .join(' ')
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '')
-      .replace(/\\\(/g, '(')
-      .replace(/\\\)/g, ')')
-      .replace(/\\\\/g, '\\')
-      .replace(/\s+/g, ' ')
+    // Clean up the extracted text
+    extractedText = extractedText
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+/g, ' ')
       .trim();
 
     if (!extractedText || extractedText.length < 10) {
@@ -89,10 +57,11 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 
     return extractedText;
   } catch (error) {
-    if (error instanceof Error) {
+    if (error instanceof Error && error.message.includes('extractable')) {
       throw error;
     }
-    throw new Error('Failed to extract text from PDF. Please try a different file or convert it to text format.');
+    logger.error('PDF extraction failed:', error);
+    throw new Error('Failed to extract text from PDF. The file may be corrupted, password-protected, or image-based.');
   }
 }
 
@@ -104,10 +73,10 @@ async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
     // For DOCX, we'll convert to string and extract text from XML
     const content = buffer.toString('utf-8');
-    
+
     // DOCX files contain text in <w:t> tags
     const textMatches = content.match(/<w:t[^>]*>([^<]+)<\/w:t>/g);
-    
+
     if (!textMatches || textMatches.length === 0) {
       throw new Error('No text found in DOCX file. The file may be corrupted.');
     }
@@ -127,7 +96,7 @@ async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
 
     return extractedText;
   } catch (error) {
-    // If DOCX parsing fails, return helpful error
+    logger.error('DOCX extraction failed:', error);
     throw new Error('Failed to extract text from DOCX. Please save the file as PDF or plain text instead.');
   }
 }
@@ -174,7 +143,7 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
 
     // Handle plain text files
     const text = buffer.toString('utf-8');
-    
+
     if (text.length > MAX_TEXT_LENGTH) {
       return text.slice(0, MAX_TEXT_LENGTH) + '\n\n... (content truncated due to length)';
     }
@@ -185,7 +154,7 @@ export async function extractTextFromFile(file: File, maxSizeMB: number = MAX_RE
 
     return text;
   } catch (error) {
-    console.error("Error parsing file:", error);
+    logger.error('Error parsing file:', error);
 
     if (error instanceof Error) {
       throw error;
@@ -253,7 +222,7 @@ export async function extractTextFromUrl(url: string): Promise<string> {
 
     return text;
   } catch (error) {
-    console.error("Error scraping URL:", error);
+    logger.error('Error scraping URL:', error);
 
     if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') {
       throw new Error('URL request timed out (max 10 seconds). The page may be slow or unreachable.');

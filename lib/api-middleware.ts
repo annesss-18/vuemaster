@@ -25,7 +25,7 @@ export function withAuth(
 
         // 2. Check rate limiting (if configured)
         if (rateLimitConfig) {
-            const rateLimit = checkRateLimit(user.id, rateLimitConfig);
+            const rateLimit = await checkRateLimit(user.id, rateLimitConfig);
 
             if (!rateLimit.allowed) {
                 const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
@@ -77,7 +77,7 @@ export function withRateLimit(
             req.headers.get('x-real-ip') ||
             'unknown';
 
-        const rateLimit = checkRateLimit(ip, config);
+        const rateLimit = await checkRateLimit(ip, config);
 
         if (!rateLimit.allowed) {
             const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);

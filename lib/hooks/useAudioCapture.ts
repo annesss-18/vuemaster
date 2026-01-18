@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { logger } from '@/lib/logger';
 
 interface UseAudioCaptureReturn {
     isCapturing: boolean;
@@ -45,7 +46,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
             }
 
             const nativeSampleRate = audioContextRef.current.sampleRate;
-            console.log(`AudioContext running at ${nativeSampleRate}Hz`);
+            logger.debug(`AudioContext running at ${nativeSampleRate}Hz`);
             // Load audio worklet module
             try {
                 await audioContextRef.current.audioWorklet.addModule('/worklets/audio-processor.js');
@@ -118,7 +119,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
             // Connect the nodes
             sourceRef.current.connect(processorRef.current);
-            
+
             // Ensure audio is actually flowing by monitoring the processor
             // Some browsers require the destination to be active. 
             // We use a silent gain node to keep the graph active without feedback.
@@ -128,7 +129,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
             gainNode.connect(audioContextRef.current.destination);
 
             setIsCapturing(true);
-            console.log(`Audio capture started at ${nativeSampleRate}Hz using AudioWorklet`);
+            logger.info(`Audio capture started at ${nativeSampleRate}Hz using AudioWorklet`);
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to access microphone';
@@ -167,7 +168,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         }
 
         setIsCapturing(false);
-        console.log('Audio capture stopped');
+        logger.info('Audio capture stopped');
     }, []);
 
     return {
