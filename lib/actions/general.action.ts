@@ -465,19 +465,90 @@ export async function createFeedback(params: CreateFeedbackParams) {
             model: google('gemini-3-pro-preview'),
             schema: feedbackSchema,
             prompt: `
-You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
+═══════════════════════════════════════════════════════════════════
+DEEP INSIGHT INTERVIEW ANALYSIS
+═══════════════════════════════════════════════════════════════════
 
-Transcript:
+You are a Senior Interview Coach and Technical Evaluator. Your task is to provide 
+a comprehensive, actionable analysis that helps this candidate grow in their career.
+
+DO NOT BE LENIENT. Provide honest, constructive feedback that genuinely helps.
+
+═══════════════════════════════════════════════════════════════════
+INTERVIEW TRANSCRIPT
+═══════════════════════════════════════════════════════════════════
+
 ${formattedTranscript}
 
-Please score the candidate from 0 to 100 in the following areas. Do not add categories other than the ones provided:
-- **Communication Skills**: Clarity, articulation, structured responses.
-- **Technical Knowledge**: Understanding of key concepts for the role.
-- **Problem-Solving**: Ability to analyze problems and propose solutions.
-- **Cultural & Role Fit**: Alignment with company values and job role.
-- **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
-            `,
-            system: "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
+═══════════════════════════════════════════════════════════════════
+ANALYSIS FRAMEWORK
+═══════════════════════════════════════════════════════════════════
+
+1. **BEHAVIORAL SIGNAL ANALYSIS**
+   
+   Go beyond WHAT they said. Analyze HOW they said it:
+   
+   - Did they structure their thoughts before speaking, or ramble?
+   - Did they ask clarifying questions, or assume?
+   - When stuck, did they think out loud or go silent?
+   - Did they recover well after hints, or continue struggling?
+   - Were their examples specific and detailed, or vague?
+   - Did they show genuine enthusiasm for technical topics?
+
+2. **TECHNICAL-BEHAVIORAL CORRELATION**
+   
+   Connect technical performance to underlying patterns:
+   
+   - If they knew the answer but explained poorly → communication coaching
+   - If they had good intuition but lacked depth → learning path recommendation
+   - If they struggled under pressure → interview preparation tips
+   - If they showed great potential but inexperience → role level guidance
+
+3. **CAREER COACHING (Critical Section)**
+   
+   Provide SPECIFIC, ACTIONABLE advice:
+   
+   ❌ Wrong: "Improve your coding skills"
+   ✅ Right: "Practice medium-level LeetCode problems focusing on graph algorithms, 
+              aiming for 2 problems daily for 4 weeks"
+   
+   ❌ Wrong: "Work on communication"
+   ✅ Right: "Use the STAR method for behavioral questions. Before each interview,
+              write down 5 specific project examples using this template"
+   
+   ❌ Wrong: "Study system design"
+   ✅ Right: "Read 'Designing Data-Intensive Applications' chapters 1-5, then
+              practice designing Twitter and Netflix with a 30-minute timer"
+
+4. **ROLE READINESS ASSESSMENT**
+   
+   Be honest about where they stand:
+   
+   - For Senior roles: Are they leading discussions or following?
+   - For Staff roles: Are they thinking about broader impact?
+   - For their target level: What's the gap to close?
+
+═══════════════════════════════════════════════════════════════════
+SCORING GUIDELINES
+═══════════════════════════════════════════════════════════════════
+
+0-20:  Significant gaps, fundamental knowledge missing
+20-40: Below expectations, needs substantial improvement
+40-60: Meets some expectations, room for growth
+60-80: Good performance, minor areas to address
+80-100: Excellent performance, ready for next level
+
+HIRING RECOMMENDATION:
+- Strong Yes: Exceeds bar, would fight to hire
+- Yes: Meets bar, confident hire
+- Lean Yes: Slightly above bar, would hire with minor reservations
+- Lean No: Slightly below bar, would pass unless team is desperate
+- No: Missing key requirements
+- Strong No: Significant red flags
+
+Output analysis matching the schema.
+            `.trim(),
+            system: "You are a senior interview coach providing deep, actionable feedback. Be honest but constructive. Your goal is to help candidates grow, not just evaluate them.",
         });
 
         // Validate AI output with Zod
@@ -525,15 +596,18 @@ Please score the candidate from 0 to 100 in the following areas. Do not add cate
             },
         ];
 
-        // Store feedback in Firestore
+        // Store feedback in Firestore with enhanced fields
         const feedbackDoc = await db.collection('feedback').add({
             interviewId,
             userId,
             totalScore: validatedFeedback.totalScore,
+            hiringRecommendation: validatedFeedback.hiringRecommendation,
             categoryScores: validatedFeedback.categoryScores,
             categoryScoresArray,
+            behavioralInsights: validatedFeedback.behavioralInsights,
             strengths: validatedFeedback.strengths,
             areasForImprovement: validatedFeedback.areasForImprovement,
+            careerCoaching: validatedFeedback.careerCoaching,
             finalAssessment: validatedFeedback.finalAssessment,
             createdAt: new Date().toISOString(),
         });

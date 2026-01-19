@@ -62,6 +62,12 @@ export function LiveInterviewAgent({ interview, sessionId, userId }: LiveIntervi
             // Clear audio queue when user interrupts
             clearAudioQueue();
         },
+        onInterviewComplete: () => {
+            // AI has naturally concluded the interview - auto-end it
+            logger.info('Interview naturally completed, triggering auto-end');
+            toast.info('Interview completed! Generating your feedback...');
+            handleEndInterview();
+        },
     });
 
     const {

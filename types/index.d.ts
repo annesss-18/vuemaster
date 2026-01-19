@@ -3,6 +3,10 @@ export interface Feedback {
   id: string;
   interviewId: string;
   totalScore: number;
+  // NEW: Hiring recommendation
+  hiringRecommendation?:
+  | 'Strong Yes' | 'Yes' | 'Lean Yes'
+  | 'Lean No' | 'No' | 'Strong No';
   categoryScores: {
     [key: string]: {
       score: number;
@@ -18,8 +22,24 @@ export interface Feedback {
     score: number;
     comment: string;
   }>;
+  // NEW: Behavioral insights from Deep Insight Engine
+  behavioralInsights?: {
+    confidenceLevel: 'High' | 'Moderate' | 'Low' | 'Variable';
+    clarityOfThought: 'Excellent' | 'Good' | 'Developing' | 'Needs Improvement';
+    technicalDepth: 'Expert' | 'Proficient' | 'Intermediate' | 'Foundational';
+    problemApproach: 'Systematic' | 'Intuitive' | 'Exploratory' | 'Uncertain';
+    stressResponse: 'Composed' | 'Adaptive' | 'Hesitant' | 'Struggled';
+    observations: string[];
+  };
   strengths: string[];
   areasForImprovement: string[];
+  // NEW: Actionable career coaching
+  careerCoaching?: {
+    immediateActions: string[];
+    learningPath: string[];
+    interviewTips: string[];
+    roleReadiness: string;
+  };
   finalAssessment: string;
   createdAt: string;
 }
@@ -44,6 +64,20 @@ export interface InterviewTemplate {
   jobDescription: string;
   baseQuestions: string[];
   systemInstruction?: string;
+
+  // NEW: Company Culture Analysis (optional for backward compatibility)
+  companyCultureInsights?: {
+    values: string[];
+    workStyle: string;
+    teamStructure: string;
+  };
+
+  // NEW: Interviewer Persona
+  interviewerPersona?: {
+    name: string;
+    title: string;
+    personality: string;
+  };
 
   // Metadata
   usageCount: number;

@@ -31,14 +31,26 @@ const requestSchema = z.object({
     isPublic: z.enum(['true', 'false']),
 });
 
-// Schema for AI output
+// Schema for AI output - Enhanced with culture analysis and persona
 const templateSchema = z.object({
     role: z.string(),
     companyName: z.string().optional(),
     techStack: z.array(z.string()),
-    baseQuestions: z.array(z.string()).min(3),
-    focusArea: z.array(z.string()).describe("3-5 key competencies to evaluate"),
-    systemInstruction: z.string().describe("Detailed instructions for the AI agent"),
+    baseQuestions: z.array(z.string()).min(5).max(10)
+        .describe("Scenario-based challenges that simulate real-world discussions"),
+    focusArea: z.array(z.string()).min(3).max(5)
+        .describe("Core competencies being evaluated"),
+    companyCultureInsights: z.object({
+        values: z.array(z.string()).describe("Identified company values and cultural traits"),
+        workStyle: z.string().describe("Inferred work style: fast-paced, collaborative, etc."),
+        teamStructure: z.string().describe("Inferred team organization and dynamics"),
+    }).describe("Deep analysis of company culture from the job description"),
+    interviewerPersona: z.object({
+        name: z.string().describe("Realistic first name for the interviewer"),
+        title: z.string().describe("Job title of the interviewer at the company"),
+        personality: z.string().describe("Brief personality description: warm, rigorous, etc."),
+    }).describe("Consistent persona for the AI interviewer"),
+    systemInstruction: z.string().describe("Complete persona and behavioral directives for the AI agent"),
 });
 
 export const POST = withAuth(async (req: NextRequest, user: User) => {
@@ -73,34 +85,62 @@ export const POST = withAuth(async (req: NextRequest, user: User) => {
         const validatedData = validation.data;
         const userTechStack = JSON.parse(validatedData.techStack);
 
-        // 2. Generate template with AI
+        // 2. Generate template with AI - Enhanced deep-context analysis
         const constructedPrompt = `
-You are an expert technical interviewer and architect of AI personalities. Create a comprehensive interview template.
+You are a Principal Interview Architect specializing in creating high-fidelity technical interview experiences. Your task is to engineer an interview template that feels like a genuine conversation with a senior engineer at ${validatedData.companyName || 'a leading tech company'}.
 
-CONTEXT:
-Role: ${validatedData.role}
-Company: ${validatedData.companyName || 'Not specified'}
-Level: ${validatedData.level}
-Type: ${validatedData.type}
-Confirmed Tech Stack: ${userTechStack.join(', ')}
+═══════════════════════════════════════════════════════════════════
+DEEP CONTEXT ANALYSIS
+═══════════════════════════════════════════════════════════════════
 
-[JD CONTEXT START]
+[JOB DESCRIPTION]
 ${validatedData.jdInput.substring(0, 20000)}
-[JD CONTEXT END]
 
-INSTRUCTIONS:
-1. Use the "Confirmed Tech Stack" as the primary list of skills to test.
-2. Identify 3-5 Focus Areas based on the Role and Stack.
-3. Generate 5-10 challenging, role-specific questions.
-4. **Create a System Instruction for the AI Agent**.
-   - **Persona**: Define a specific persona (e.g., "Senior Engineering Manager at ${validatedData.companyName || 'TechCorp'}").
-   - **Tone**: Professional, encouraging, but rigorous. Instruct the AI to use natural speech patterns (e.g., "I see," "That makes sense," "Could you clarify...").
-   - **Strategy**: 
-     - Do NOT just read the list of questions. Use them as a guide.
-     - Listen to the candidate's answers. If they are vague, ask follow-up questions to dig deeper.
-     - If they struggle, offer a small hint, then see if they recover.
-     - Move naturally between topics.
-   - **Format**: The System Instruction should be a direct prompt text for the AI Agent.
+[INTERVIEW PARAMETERS]
+• Role: ${validatedData.role}
+• Level: ${validatedData.level}
+• Type: ${validatedData.type}  
+• Core Tech Stack: ${userTechStack.join(', ')}
+
+═══════════════════════════════════════════════════════════════════
+ANALYSIS INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════
+
+1. **COMPANY CULTURE EXTRACTION**
+   - Identify explicit and implicit values (collaboration style, pace, autonomy)
+   - Note team structure hints (cross-functional, pod-based, etc.)
+   - Detect cultural keywords ("move fast", "customer-obsessed", "engineering excellence")
+   
+2. **ROLE DEEP-DIVE**
+   - Map primary responsibilities to testable competencies
+   - Identify the "hidden requirements" (what they can't directly ask but need)
+   - Determine the day-1 vs. day-90 expectations
+
+3. **GENERATE SCENARIO-BASED CHALLENGES**
+   Create 5-8 questions that:
+   - Start with a realistic scenario ("You've just joined the team and...")
+   - Require multi-step reasoning, not just recall
+   - Test both technical depth AND communication style
+   - Include at least one production debugging scenario
+   - Include at least one system design/architecture discussion
+   - Include one collaboration/conflict resolution scenario (for ${validatedData.type} interview)
+   
+   ❌ AVOID: "What is X?", "Explain Y", "List Z"
+   ✅ USE: "You're on-call at 2 AM and...", "A PM comes to you with...", "Your team disagrees on..."
+
+4. **CRAFT THE INTERVIEWER PERSONA**
+   Create a realistic interviewer with:
+   - A common first name (Alex, Sam, Jordan, etc.)
+   - A contextual title (e.g., "Staff Engineer" for senior roles)
+   - A personality that's professional yet warm
+
+   Build a System Instruction that includes:
+   - Opening introduction protocol (greet by name if available from resume)
+   - Natural speech patterns ("I see...", "That's interesting...", thinking pauses)
+   - Active listening behaviors (ask follow-ups based on answers)
+   - Hint-giving protocol (one small hint if stuck, then assess recovery)
+   - Natural topic transitions ("That reminds me of...")
+   - Encouraging close regardless of performance
 
 Output JSON matching the schema.
 `.trim();

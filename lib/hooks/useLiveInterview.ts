@@ -42,13 +42,14 @@ interface UseLiveInterviewOptions {
     sessionId: string;
     interviewContext: InterviewContext;
     onInterruption?: () => void;
+    onInterviewComplete?: () => void; // Called when AI naturally concludes the interview
 }
 
 /**
  * Hook for managing Gemini Live API WebSocket connection for live interviews.
  */
 export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInterviewReturn {
-    const { sessionId, interviewContext, onInterruption } = options;
+    const { sessionId, interviewContext, onInterruption, onInterviewComplete } = options;
 
     const [status, setStatus] = useState<ConnectionStatus>('idle');
     const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,10 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
     const reconnectionAttemptsRef = useRef(0);
     const isIntentionalDisconnectRef = useRef(false);
     const isConnectedRef = useRef(false); // Synchronous connection status tracking
+    const lastSpeakerRef = useRef<'user' | 'model' | null>(null); // Track last speaker to clear caption on change
+    const modelCaptionRef = useRef<string>(''); // Accumulate model caption separately
+    const closingDetectedRef = useRef(false); // Prevent duplicate closing triggers
+    const fullTranscriptRef = useRef<string>(''); // Track full model output for closing detection
 
     // Timer effect
     useEffect(() => {
@@ -102,7 +107,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                     turns: [
                         {
                             role: 'user',
-                            parts: [{ text: 'Hello, I am ready to begin the interview. Please introduce yourself and start the interview.' }],
+                            parts: [{ text: 'The interview is starting now. Please introduce yourself and begin.' }],
                         },
                     ],
                     turnComplete: true,
@@ -161,6 +166,36 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
             // Clear internal thinking buffer (not used for display)
             currentTranscriptRef.current = '';
 
+            // Check for interview closing phrases
+            // Only trigger on DEFINITIVE closing statements, not when AI asks if user has questions
+            const fullModelText = fullTranscriptRef.current.toLowerCase();
+            const closingPhrases = [
+                'thank you for your time',
+                'thanks for your time',
+                'thank you for taking the time',
+                'good luck with your',
+                'best of luck',
+                'wish you all the best',
+                'that concludes our interview',
+                'that wraps up our interview',
+                'it was great talking to you',
+                'it was great speaking with you',
+                'i enjoyed our conversation',
+                'we will be in touch',
+                'we\'ll be in touch',
+            ];
+
+            const hasClosingPhrase = closingPhrases.some(phrase => fullModelText.includes(phrase));
+
+            if (hasClosingPhrase && !closingDetectedRef.current) {
+                closingDetectedRef.current = true;
+
+                // Wait a bit for the AI's final message to finish playing
+                setTimeout(() => {
+                    onInterviewComplete?.();
+                }, 5000); // 5 second delay after closing detected
+            }
+
             // Clear caption after a brief delay if not interrupted by user
             setTimeout(() => {
                 setCurrentCaption('');
@@ -173,6 +208,12 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         if (message.serverContent?.inputTranscription) {
             const userText = message.serverContent.inputTranscription.text;
             if (userText) {
+                // Clear caption if switching from model to user
+                if (lastSpeakerRef.current !== 'user') {
+                    userTranscriptRef.current = '';
+                    lastSpeakerRef.current = 'user';
+                }
+
                 // Set user as current speaker
                 setCurrentSpeaker('user');
                 setIsUserSpeaking(true);
@@ -180,7 +221,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                 // Accumulate the text
                 userTranscriptRef.current += userText;
 
-                // Update caption with current user speech
+                // Update caption with current user speech only
                 setCurrentCaption(userTranscriptRef.current.trim());
 
                 // Clear any existing timeout
@@ -211,8 +252,20 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
         if (message.serverContent?.outputTranscription) {
             const modelText = message.serverContent.outputTranscription.text;
             if (modelText) {
-                // Update caption with actual spoken text
-                setCurrentCaption(prev => prev + modelText);
+                // Clear caption if switching from user to model
+                if (lastSpeakerRef.current !== 'model') {
+                    modelCaptionRef.current = '';
+                    lastSpeakerRef.current = 'model';
+                }
+
+                // Accumulate model caption for display
+                modelCaptionRef.current += modelText;
+
+                // Also accumulate for closing detection (keeps full history)
+                fullTranscriptRef.current += modelText;
+
+                // Update caption with model spoken text only
+                setCurrentCaption(modelCaptionRef.current);
                 setCurrentSpeaker('model');
 
                 // Also update transcript
@@ -233,7 +286,7 @@ export function useLiveInterview(options: UseLiveInterviewOptions): UseLiveInter
                 });
             }
         }
-    }, [onInterruption]);
+    }, [onInterruption, onInterviewComplete]);
 
     const connect = useCallback(async () => {
         try {
