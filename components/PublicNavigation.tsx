@@ -44,8 +44,8 @@ export default function PublicNavigation() {
                                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                                 <div className="relative size-12 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                                     <Image
-                                        src="/logo.svg"
-                                        alt="VueMaster Logo"
+                                        src="/icon.png"
+                                        alt="IntervoxAI Logo"
                                         width={24}
                                         height={24}
                                         className="relative z-10"
@@ -55,7 +55,7 @@ export default function PublicNavigation() {
 
                             <div className="flex items-center gap-3">
                                 <h2 className="text-xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
-                                    vuemaster
+                                    IntervoxAI
                                 </h2>
                                 <div className="px-2 py-0.5 rounded-full bg-primary-500/20 border border-primary-400/30">
                                     <span className="text-[10px] font-bold text-primary-300">AI</span>

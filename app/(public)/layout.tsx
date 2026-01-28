@@ -21,8 +21,8 @@ const PublicLayout = ({ children }: { children: ReactNode }) => {
           <div className="flex items-center justify-center gap-2">
             <div className="size-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center">
               <Image
-                src="/logo.svg"
-                alt="VueMaster"
+                src="/icon.png"
+                alt="IntervoxAI"
                 width={16}
                 height={16}
               />
@@ -32,7 +32,7 @@ const PublicLayout = ({ children }: { children: ReactNode }) => {
             </span>
           </div>
           <p className="text-xs text-light-400">
-            © 2026 VueMaster. All rights reserved.
+            © 2026 IntervoxAI. All rights reserved.
           </p>
         </div>
       </footer>

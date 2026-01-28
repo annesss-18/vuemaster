@@ -29,14 +29,13 @@ export default function LandingPage() {
                 {/* Main Heading */}
                 <div className="space-y-4 animate-slideInUp">
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white leading-tight">
-                        Master Your Next
+                        Practice. Speak.
                         <span className="block bg-gradient-to-r from-primary-200 via-accent-300 to-primary-300 bg-clip-text text-transparent">
-                            Technical Interview
+                            Improve.
                         </span>
                     </h1>
                     <p className="text-lg md:text-xl text-light-300 max-w-2xl mx-auto leading-relaxed">
-                        Practice with AI interviewers that adapt to your skill level. Get real-time feedback,
-                        improve your responses, and land your dream job with confidence.
+                        Real interviews. Real feedback. Faster growth. Master your technical interviews with AI-powered mock interviews that adapt to your skill level.
                     </p>
                 </div>
 
@@ -137,7 +136,7 @@ export default function LandingPage() {
             <section className="container-app">
                 <div className="text-center space-y-4 mb-16">
                     <h2 className="text-3xl md:text-4xl font-bold text-white">
-                        Why VueMaster?
+                        Why IntervoxAI?
                     </h2>
                     <p className="text-light-300 max-w-xl mx-auto">
                         The most realistic AI interview experience available
@@ -197,8 +196,8 @@ export default function LandingPage() {
                     <div className="card !p-12 text-center space-y-6 bg-gradient-to-r from-primary-500/10 to-accent-300/10">
                         <div className="size-20 mx-auto rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-2xl">
                             <Image
-                                src="/logo.svg"
-                                alt="VueMaster"
+                                src="/icon.png"
+                                alt="IntervoxAI"
                                 width={40}
                                 height={40}
                             />
@@ -207,7 +206,7 @@ export default function LandingPage() {
                             Ready to Ace Your Interview?
                         </h2>
                         <p className="text-light-300 max-w-lg mx-auto">
-                            Join thousands of developers who have improved their interview skills with VueMaster.
+                            Join thousands of developers who have improved their interview skills with IntervoxAI.
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                             <Link

@@ -186,7 +186,7 @@ export async function extractTextFromUrl(url: string): Promise<string> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; VueMaster/1.0; +https://vuemaster.app)'
+        'User-Agent': 'Mozilla/5.0 (compatible; IntervoxAI/1.0; +https://intervoxai.com)'
       }
     });
 

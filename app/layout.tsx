@@ -12,16 +12,16 @@ const quantico = Quantico({
 });
 
 // Base URL for metadata
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vuemaster.app";
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://intervoxai.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "VueMaster - AI-Powered Mock Interview Platform",
-    template: "%s | VueMaster",
+    default: "IntervoxAI - AI-Powered Mock Interview Platform",
+    template: "%s | IntervoxAI",
   },
   description:
-    "Master your technical interviews with AI-powered mock interviews. Get real-time feedback, practice coding challenges, and improve your skills with personalized assessments powered by Google Gemini.",
+    "Practice. Speak. Improve. Master your technical interviews with AI-powered mock interviews. Real interviews. Real feedback. Faster growth.",
   keywords: [
     "mock interview",
     "AI interview",
@@ -31,10 +31,11 @@ export const metadata: Metadata = {
     "Gemini AI",
     "job preparation",
     "software engineer interview",
+    "IntervoxAI",
   ],
-  authors: [{ name: "VueMaster Team" }],
-  creator: "VueMaster",
-  publisher: "VueMaster",
+  authors: [{ name: "IntervoxAI Team" }],
+  creator: "IntervoxAI",
+  publisher: "IntervoxAI",
   robots: {
     index: true,
     follow: true,
@@ -50,31 +51,35 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: baseUrl,
-    siteName: "VueMaster",
-    title: "VueMaster - AI-Powered Mock Interview Platform",
+    siteName: "IntervoxAI",
+    title: "IntervoxAI - AI-Powered Mock Interview Platform",
     description:
-      "Master your technical interviews with AI-powered mock interviews. Get real-time feedback and personalized assessments.",
+      "Practice. Speak. Improve. Master your technical interviews with AI-powered mock interviews.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "VueMaster - AI Mock Interviews",
+        alt: "IntervoxAI - AI Mock Interviews",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "VueMaster - AI-Powered Mock Interview Platform",
+    title: "IntervoxAI - AI-Powered Mock Interview Platform",
     description:
-      "Master your technical interviews with AI-powered mock interviews.",
+      "Practice. Speak. Improve. Master your technical interviews with AI-powered mock interviews.",
     images: ["/og-image.png"],
-    creator: "@vuemaster",
+    creator: "@intervoxai",
   },
   icons: {
-    icon: "/logo.svg",
-    shortcut: "/logo.svg",
-    apple: "/robot.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
   manifest: "/site.webmanifest",
 };

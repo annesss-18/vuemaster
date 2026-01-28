@@ -188,11 +188,11 @@ const AuthFormContent = ({ type }: { type: "sign-in" | "sign-up" }) => {
               <div className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary-500/30 to-accent-300/30 rounded-full blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative size-16 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 flex items-center justify-center shadow-2xl">
-                  <Image src="/logo.svg" alt="logo" height={32} width={32} />
+                  <Image src="/icon.png" alt="logo" height={64} width={64} />
                 </div>
               </div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-primary-200 to-accent-300 bg-clip-text text-transparent">
-                vuemaster
+                IntervoxAI
               </h2>
             </div>
 
