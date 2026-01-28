@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input"
 import Image from "next/image"
 import Link from "next/link"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { auth } from "@/firebase/client"
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import { signIn, signUp, googleAuthenticate } from "@/lib/actions/auth.action"
 import { logger } from "@/lib/logger"
 import { Sparkles, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react"
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useState } from "react"
+import { useState, Suspense } from "react"
 
 const authFormSchema = (type: "sign-in" | "sign-up") => z.object({
   name: type === 'sign-up' ? z.string().min(3, 'Name must be at least 3 characters') : z.string().optional(),
@@ -24,8 +24,10 @@ const authFormSchema = (type: "sign-in" | "sign-up") => z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
-const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
+const AuthFormContent = ({ type }: { type: "sign-in" | "sign-up" }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
   const [isLoading, setIsLoading] = useState(false);
   const formSchema = authFormSchema(type);
   const isSignIn = type === "sign-in";
@@ -67,7 +69,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
         }
         await signIn({ email, idToken });
         toast.success("Signed in successfully!");
-        router.push('/');
+        router.push(returnUrl);
       }
     } catch (error) {
       logger.error('Authentication error:', error);
@@ -144,7 +146,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
 
       if (result?.success) {
         toast.success("Signed in successfully!");
-        router.push('/');
+        router.push(returnUrl);
       } else {
         toast.error(result?.message || "Google Sign In failed");
       }
@@ -348,7 +350,7 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
             {/* Switch Auth Type */}
             <div className="text-center">
               <Link
-                href={isSignIn ? "/sign-up" : "/sign-in"}
+                href={isSignIn ? `/sign-up?returnUrl=${encodeURIComponent(returnUrl)}` : `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-dark-200/60 border border-primary-400/30 hover:border-primary-400/50 hover:bg-dark-200 transition-all duration-300 font-semibold text-primary-200 group"
               >
                 <span>{isSignIn ? "Create New Account" : "Sign In Instead"}</span>
@@ -367,6 +369,19 @@ const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
       </div>
     </div>
   )
+}
+
+// Wrap in Suspense for useSearchParams
+const AuthForm = ({ type }: { type: "sign-in" | "sign-up" }) => {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-screen flex items-center justify-center bg-dark-100">
+        <Loader2 className="size-8 animate-spin text-primary-300" />
+      </div>
+    }>
+      <AuthFormContent type={type} />
+    </Suspense>
+  );
 }
 
 export default AuthForm
